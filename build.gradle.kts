@@ -3,7 +3,11 @@ import org.gradle.kotlin.dsl.extra
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
 
 // Global Definition
+// `applicationId` here is the code namespace shared by all modules (matches the Kotlin package
+// structure) — do not change it, or every module's namespace/manifest component resolution breaks.
+// The store-facing package ID is `storeApplicationId`, set only on the `app` module below.
 val applicationId by extra ("com.wa2c.android.cifsdocumentsprovider")
+val storeApplicationId by extra ("su.dix.cifsdocumentsprovider")
 val javaVersion by extra (JavaVersion.VERSION_21)
 val androidCompileSdk by extra (35)
 val androidMinSdk by extra (26)
