@@ -37,6 +37,8 @@ data class RemoteConnection(
     val encoding: String = DEFAULT_ENCODING,
     val isFtpActiveMode: Boolean = false,
     val isFtpsImplicit: Boolean = false,
+    val isDixsuTunnel: Boolean = false,
+    val dixsuSlug: String = "",
     // Options
     val optionSafeTransfer: Boolean = false,
     val optionReadOnly: Boolean = false,
@@ -85,6 +87,8 @@ data class RemoteConnection(
                 || this.encoding != other.encoding
                 || this.isFtpActiveMode != other.isFtpActiveMode
                 || this.isFtpsImplicit != other.isFtpsImplicit
+                || this.isDixsuTunnel != other.isDixsuTunnel
+                || this.dixsuSlug != other.dixsuSlug
                 || this.optionSafeTransfer != other.optionSafeTransfer
     }
 

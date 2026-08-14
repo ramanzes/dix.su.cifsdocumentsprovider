@@ -29,3 +29,10 @@ const val DEFAULT_FTPS_IMPLICIT_PORT = 990
 
 const val PASSWORD_LENGTH_16 = 16
 const val PASSWORD_LENGTH_32 = 32
+
+/** dix.su tunnel host suffix (appended to the slug to form the tunnel hostname). */
+const val DIXSU_HOST_SUFFIX = ".dix.su"
+/** dix.su tunnel port. */
+const val DIXSU_PORT = 2222
+/** Preamble line sent right before the SSH handshake to route the connection to the target device. */
+const val DIXSU_PREAMBLE_PREFIX = "DIXSU:"

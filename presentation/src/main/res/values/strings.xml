@@ -57,6 +57,9 @@
     <string name="edit_passphrase_title">Private key passphrase</string>
     <string name="edit_passphrase_hint">Not entered if not set</string>
     <string name="edit_ignore_known_hosts_label">Do not check SSH trusted hosts</string>
+    <string name="edit_dixsu_tunnel_label">dixsu tunnel</string>
+    <string name="edit_dixsu_slug_title">Slug</string>
+    <string name="edit_dixsu_slug_hint">Device slug on dix.su</string>
     <string name="edit_encoding_title">Character Code</string>
     <string name="edit_ftp_mode_title">Active Mode</string>
     <string name="edit_ftps_implicit_label">Implicit SSL/TLS Mode</string>

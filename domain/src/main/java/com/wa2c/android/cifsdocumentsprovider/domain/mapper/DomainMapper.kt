@@ -173,6 +173,8 @@ internal object DomainMapper {
                     keyPassphrase = keyPassphrase,
                     ignoreKnownHosts = ignoreKnownHosts,
                     encoding = encoding,
+                    isDixsuTunnel = isDixsuTunnel,
+                    dixsuSlug = dixsuSlug,
                     optionSafeTransfer = safeTransfer,
                     optionReadOnly = readOnly,
                     optionThumbnailTypes = thumbnailTypes.mapNotNull { ThumbnailType.findByType(it) },
@@ -281,6 +283,8 @@ internal object DomainMapper {
                     keyPassphrase = keyPassphrase,
                     ignoreKnownHosts = ignoreKnownHosts,
                     encoding = encoding,
+                    isDixsuTunnel = isDixsuTunnel,
+                    dixsuSlug = dixsuSlug,
                 )
             }
         }

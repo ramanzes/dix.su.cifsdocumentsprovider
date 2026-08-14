@@ -57,6 +57,9 @@
     <string name="edit_passphrase_title">Пароль от приватного ключа</string>
     <string name="edit_passphrase_hint">Не вводите если не нужно</string>
     <string name="edit_ignore_known_hosts_label">Не проверять знакомые и доверенные SSH хосты</string>
+    <string name="edit_dixsu_tunnel_label">dixsu-туннель</string>
+    <string name="edit_dixsu_slug_title">Слаг</string>
+    <string name="edit_dixsu_slug_hint">Слаг устройства на dix.su</string>
     <string name="edit_encoding_title">Кодировка символов</string>
     <string name="edit_ftp_mode_title">Активный режим</string>
     <string name="edit_ftps_implicit_label">Неявный SSL/TLS режим</string>

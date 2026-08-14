@@ -112,5 +112,7 @@ sealed class StorageConnection {
         val keyPassphrase: String? = null,
         val ignoreKnownHosts: Boolean = false,
         val encoding: String,
+        val isDixsuTunnel: Boolean = false,
+        val dixsuSlug: String = "",
     ) : StorageConnection()
 }

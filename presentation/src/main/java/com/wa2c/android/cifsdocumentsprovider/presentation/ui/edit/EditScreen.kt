@@ -63,6 +63,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wa2c.android.cifsdocumentsprovider.common.exception.StorageException
 import com.wa2c.android.cifsdocumentsprovider.common.utils.fileName
 import com.wa2c.android.cifsdocumentsprovider.common.utils.logD
+import com.wa2c.android.cifsdocumentsprovider.common.values.DIXSU_HOST_SUFFIX
+import com.wa2c.android.cifsdocumentsprovider.common.values.DIXSU_PORT
 import com.wa2c.android.cifsdocumentsprovider.common.values.ProtocolType
 import com.wa2c.android.cifsdocumentsprovider.common.values.StorageType
 import com.wa2c.android.cifsdocumentsprovider.common.values.ThumbnailType
@@ -478,12 +480,51 @@ private fun EditScreenContainer(
                         }
                     }
 
+                    // dixsu tunnel (SFTP only)
+                    if (protocol == ProtocolType.SFTP) {
+                        InputCheck(
+                            title = stringResource(id = R.string.edit_dixsu_tunnel_label),
+                            value = connectionState.value.isDixsuTunnel,
+                            focusManager = focusManager,
+                        ) { checked ->
+                            connectionState.value = connectionState.value.copy(
+                                isDixsuTunnel = checked,
+                                host = if (checked) "${connectionState.value.dixsuSlug}$DIXSU_HOST_SUFFIX" else connectionState.value.host,
+                                port = if (checked) DIXSU_PORT.toString() else connectionState.value.port,
+                                // the SSH host key is checked against the local tunnel endpoint,
+                                // not the real device, so known-hosts checking can't apply here
+                                ignoreKnownHosts = if (checked) true else connectionState.value.ignoreKnownHosts,
+                            )
+                        }
+
+                        if (connectionState.value.isDixsuTunnel) {
+                            InputText(
+                                title = stringResource(id = R.string.edit_dixsu_slug_title),
+                                hint = stringResource(id = R.string.edit_dixsu_slug_hint),
+                                value = connectionState.value.dixsuSlug,
+                                focusManager = focusManager,
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Uri,
+                                    imeAction = ImeAction.Next,
+                                ),
+                            ) {
+                                val slug = it ?: ""
+                                connectionState.value = connectionState.value.copy(
+                                    dixsuSlug = slug,
+                                    host = "$slug$DIXSU_HOST_SUFFIX",
+                                    port = DIXSU_PORT.toString(),
+                                )
+                            }
+                        }
+                    }
+
                     // Host
                     InputText(
                         title = stringResource(id = R.string.edit_host_title),
                         hint = stringResource(id = R.string.edit_host_hint),
                         value = connectionState.value.host,
                         focusManager = focusManager,
+                        enabled = !connectionState.value.isDixsuTunnel,
                         keyboardOptions = KeyboardOptions(
                             keyboardType = KeyboardType.Uri,
                             imeAction = ImeAction.Next,
@@ -500,6 +541,7 @@ private fun EditScreenContainer(
                         hint = stringResource(id = R.string.edit_port_hint),
                         value = connectionState.value.port,
                         focusManager = focusManager,
+                        enabled = !connectionState.value.isDixsuTunnel,
                         keyboardOptions = KeyboardOptions(
                             keyboardType = KeyboardType.Number,
                             imeAction = ImeAction.Next,
@@ -507,7 +549,7 @@ private fun EditScreenContainer(
                     ) {
                         connectionState.value = connectionState.value.copy(port = it)
                     }
-                    
+
                     // Enable DFS
                     if (protocol == ProtocolType.SMB) {
                         InputCheck(

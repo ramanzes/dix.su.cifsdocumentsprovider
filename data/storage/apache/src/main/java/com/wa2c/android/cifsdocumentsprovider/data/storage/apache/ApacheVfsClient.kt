@@ -55,6 +55,28 @@ abstract class ApacheVfsClient(
     )
 
     /**
+     * Resolve the URI to actually connect to for a request.
+     *
+     * Overridden by [ApacheSftpClient] to route dixsu-tunnel connections through a local
+     * loopback forwarder instead of the connection's real host/port.
+     */
+    protected open fun resolveUri(request: StorageRequest): String = request.uri
+
+    /**
+     * Undo [resolveUri]'s substitution on a URI reported back by the storage backend (e.g.
+     * [FileObject.getURL]), so [StorageFile.uri] reflects the connection's real address instead
+     * of an internal routing detail. Without this, [StorageConnection.getRelativePath] can't
+     * match the backend's URIs against [StorageConnection.uri] and every file collapses onto the
+     * same document ID.
+     */
+    protected open fun restoreUri(url: String, connection: StorageConnection): String = url
+
+    /**
+     * Called from [close]. Overridden to release backend-specific resources.
+     */
+    protected open fun onClose() = Unit
+
+    /**
      * Get context
      */
     private fun getContext(
@@ -99,7 +121,7 @@ abstract class ApacheVfsClient(
         existsRequired: Boolean = false,
     ): FileObject {
         val connection = request.connection
-        return fileManager.resolveFile(request.uri, getContext(connection, ignoreCache)).also {
+        return fileManager.resolveFile(resolveUri(request), getContext(connection, ignoreCache)).also {
             if (existsRequired && !it.exists()) throw StorageException.File.NotFound()
         }
     }
@@ -107,8 +129,8 @@ abstract class ApacheVfsClient(
     /**
      * Convert to StorageFile
      */
-    private fun FileObject.toStorageFile(): StorageFile {
-        val urlText = url.toString()
+    private fun FileObject.toStorageFile(connection: StorageConnection): StorageFile {
+        val urlText = restoreUri(url.toString(), connection)
         val isDir = urlText.isDirectoryUri || isFolder
         return StorageFile(
             name = name.baseName,
@@ -169,7 +191,7 @@ abstract class ApacheVfsClient(
                 )
             } else {
                 getFileObject(request, ignoreCache = ignoreCache, existsRequired = true).use { file ->
-                    file.toStorageFile()
+                    file.toStorageFile(request.connection)
                 }
             }
         }
@@ -181,7 +203,7 @@ abstract class ApacheVfsClient(
     ): List<StorageFile> {
         return runHandling(request) {
             getFileObject(request, ignoreCache = ignoreCache, existsRequired = true).use { file ->
-                file.children.filter { it.exists() }.map { it.toStorageFile() }
+                file.children.filter { it.exists() }.map { it.toStorageFile(request.connection) }
             }
         }
     }
@@ -192,7 +214,7 @@ abstract class ApacheVfsClient(
         return runHandling(request) {
             getFileObject(request).use { file ->
                 file.createFolder()
-                file.toStorageFile()
+                file.toStorageFile(request.connection)
             }
         }
     }
@@ -203,7 +225,7 @@ abstract class ApacheVfsClient(
         return runHandling(request) {
             getFileObject(request).use { file ->
                 file.createFile()
-                file.toStorageFile()
+                file.toStorageFile(request.connection)
             }
         }
     }
@@ -216,7 +238,7 @@ abstract class ApacheVfsClient(
             getFileObject(sourceRequest, existsRequired = true).use { source ->
                 getFileObject(targetRequest).use { target ->
                     target.copyFrom(source, Selectors.SELECT_SELF_AND_CHILDREN)
-                    target.toStorageFile()
+                    target.toStorageFile(targetRequest.connection)
                 }
             }
         }
@@ -231,7 +253,7 @@ abstract class ApacheVfsClient(
                 val targetUri = request.uri.rename(newName)
                 getFileObject(request.replacePathByUri(targetUri)).use { target ->
                     source.moveTo(target)
-                    target.toStorageFile()
+                    target.toStorageFile(request.connection)
                 }
             }
         }
@@ -245,7 +267,7 @@ abstract class ApacheVfsClient(
             getFileObject(sourceRequest, existsRequired = true).use { source ->
                 getFileObject(targetRequest).use { target ->
                     source.moveTo(target)
-                    target.toStorageFile()
+                    target.toStorageFile(targetRequest.connection)
                 }
             }
         }
@@ -294,6 +316,7 @@ abstract class ApacheVfsClient(
     override suspend fun close() {
         removeCache()
         fileManager.close()
+        onClose()
     }
 
     companion object {
