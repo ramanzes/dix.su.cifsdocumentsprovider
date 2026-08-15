@@ -1,41 +1,36 @@
-CIFS Documents Provider
+CIFS Documents Provider (dix.su)
 =======================
 
 ## About
 
-**CIFS Documents Provider** is an Android app to provide access to shared online storage.
+**CIFS Documents Provider (dix.su)** is a fork of [wa2c/cifs-documents-provider](https://github.com/wa2c/cifs-documents-provider) — an Android app that provides access to shared network storage (SMB, FTP, SFTP, WebDAV and more) directly through the system's file picker (Storage Access Framework), no separate file-browser UI needed.
+
+This fork adds support for **dix.su tunnels**: connect to an SFTP device sitting behind NAT/CGNAT through a [dix.su](https://dix.su) tunnel — just enter the device's slug, no port forwarding, no VPN, no extra steps on the device.
 
 <div style="display: flex">
-<img width="240" alt="Home Screen" src="./fastlane/metadata/android/en-US/images/phoneScreenshots/1.png" />
-<img width="240" alt="Home Screen" src="./fastlane/metadata/android/en-US/images/phoneScreenshots/2.png" /> 
-<img width="240" alt="Home Screen" src="./fastlane/metadata/android/en-US/images/phoneScreenshots/5.png" />
+<img width="300" alt="dixsu tunnel connection settings" src="./fastlane/metadata/android/en-US/images/phoneScreenshots/dixsu-tunnel.png" />
 </div>
+
+## What's different from the original
+
+- New **"dixsu tunnel"** toggle on SFTP connections. Turn it on, enter a device slug — the app resolves `<slug>.dix.su:2222`, performs the tunnel handshake, and the connection behaves like a normal SFTP server from then on.
+- Renamed/rebranded (`applicationId su.dix.cifsdocumentsprovider`) so it installs and updates independently of the original app — both can be installed on the same device without conflict.
+- See [CHANGELOG.md](CHANGELOG.md) for the full list of changes.
 
 ## Download
 
-### Google Play
+### GitHub Releases
 
-[<img src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png" alt="Get it on Google Play" height="80" />](https://play.google.com/store/apps/details?id=com.wa2c.android.cifsdocumentsprovider)
+[<img src="https://censorship.no/img/github-badge.png" alt="Get it on Github" height="80">](https://github.com/ramanzes/dix.su.cifsdocumentsprovider/releases)
 
-### F-Droid
+* [Release history / APK download](https://github.com/ramanzes/dix.su.cifsdocumentsprovider/releases)
 
-[<img src="https://fdroid.gitlab.io/artwork/badge/get-it-on.png" alt="Get it on F-Droid" height="80" />](https://f-droid.org/packages/com.wa2c.android.cifsdocumentsprovider/)
-
-### Amazon Appstore
-
-[<img src="https://images-na.ssl-images-amazon.com/images/G/01/mobile-apps/devportal2/res/images/amazon-appstore-badge-english-black.png" alt="Get it on Amazon Appstore" height="55">](https://www.amazon.com/gp/product/B09D4264PB)
-
-### Github
-
-[<img src="https://censorship.no/img/github-badge.png" alt="Get it on Github" height="80">](https://github.com/wa2c/cifs-documents-provider/releases)
-
-## Release History (APK Download)
-
-* [Release](https://github.com/wa2c/cifs-documents-provider/releases)
+RuStore and F-Droid listings are planned but not published yet.
 
 ## Source Code
 
-* [GitHub](https://github.com/wa2c/cifs-documents-provider)
+* This fork: [github.com/ramanzes/dix.su.cifsdocumentsprovider](https://github.com/ramanzes/dix.su.cifsdocumentsprovider)
+* Original project: [wa2c/cifs-documents-provider](https://github.com/wa2c/cifs-documents-provider)
 
 ## Module Structure
 
@@ -94,18 +89,14 @@ end
 
 ## Guide
 
-* [Wiki](https://github.com/wa2c/cifs-documents-provider/wiki)
-
-## Translation
-
-If you need a translation into your language, please add the translation data on the next page.
-
-* [CIFS Documents Provider Translation Sheet](https://docs.google.com/spreadsheets/d/1y71DyM31liwjcAUuPIk3CuIqxJD2l9Y2Q-YZ0I0XE_E/edit?gid=0#gid=0)
+* [Wiki (original project)](https://github.com/wa2c/cifs-documents-provider/wiki) — general usage of the base app. The dixsu tunnel feature is described above and in [CHANGELOG.md](CHANGELOG.md).
 
 ## Licence
 
-Copyright &copy; 2020 wa2c [MIT License](https://github.com/wa2c/cifs-documents-provider/blob/main/LICENSE)
+Copyright &copy; 2020 wa2c. dixsu tunnel additions Copyright &copy; 2026 ramanzes / dix.su.
+[MIT License](LICENSE)
 
 ## Author
 
-[wa2c](https://github.com/wa2c)
+* [wa2c](https://github.com/wa2c) — original author
+* [ramanzes](https://github.com/ramanzes) ([dix.su](https://dix.su)) — this fork, dixsu tunnel support
