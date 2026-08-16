@@ -89,7 +89,9 @@ end
 
 ## Guide
 
-* [Wiki (original project)](https://github.com/wa2c/cifs-documents-provider/wiki) — general usage of the base app. The dixsu tunnel feature is described above and in [CHANGELOG.md](CHANGELOG.md).
+* [Wiki (original project)](https://github.com/wa2c/cifs-documents-provider/wiki) — general usage of the base app.
+* [docs/dixsu-tunnel.md](docs/dixsu-tunnel.md) — dixsu tunnel setup, browsing via SAF, the local SFTP proxy, and automatic photo backup via FolderSync/Autosync (in Russian).
+* [FAQ.md](FAQ.md) — часто задаваемые вопросы (in Russian).
 
 ## Licence
 
