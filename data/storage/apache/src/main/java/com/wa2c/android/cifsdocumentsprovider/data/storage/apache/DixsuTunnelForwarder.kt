@@ -76,6 +76,11 @@ object DixsuProxyManager {
     /**
      * Returns the local loopback port to connect to for the given connection, starting
      * (or restarting, if the slug changed) the forwarder as needed. Safe to call repeatedly.
+     *
+     * Unlike [DixsuTunnelManager], this binds to a port derived deterministically from
+     * [connectionId] (falling back to nearby ports if taken) rather than an ephemeral one, so
+     * that a third-party app (e.g. FolderSync) configured once with this address keeps working
+     * across proxy restarts instead of silently pointing at a stale port.
      */
     @Synchronized
     fun start(connectionId: String, slug: String): Int {
@@ -86,7 +91,7 @@ object DixsuProxyManager {
             }
             existing.close()
         }
-        return DixsuTunnelForwarder(slug).also {
+        return DixsuTunnelForwarder(slug, preferredPort = preferredPort(connectionId)).also {
             it.start()
             forwarders[connectionId] = it
         }.localPort
@@ -96,6 +101,14 @@ object DixsuProxyManager {
     fun stop(connectionId: String) {
         forwarders.remove(connectionId)?.close()
     }
+
+    /** Deterministic port for a connection ID, stable across app/proxy restarts. */
+    private fun preferredPort(connectionId: String): Int {
+        return PORT_RANGE_START + (connectionId.hashCode() and Int.MAX_VALUE) % PORT_RANGE_SIZE
+    }
+
+    private const val PORT_RANGE_START = 40000
+    private const val PORT_RANGE_SIZE = 10000
 }
 
 /**
@@ -104,8 +117,9 @@ object DixsuProxyManager {
  */
 private class DixsuTunnelForwarder(
     val slug: String,
+    preferredPort: Int? = null,
 ) {
-    private val serverSocket = ServerSocket(0, 50, InetAddress.getByName(LOOPBACK_ADDRESS))
+    private val serverSocket = bindServerSocket(preferredPort)
     private val closed = AtomicBoolean(false)
 
     val localPort: Int get() = serverSocket.localPort
@@ -175,5 +189,22 @@ private class DixsuTunnelForwarder(
     companion object {
         private const val LOOPBACK_ADDRESS = "127.0.0.1"
         private const val BUFFER_SIZE = 8192
+        private const val PORT_FALLBACK_ATTEMPTS = 100
+
+        /** Binds an ephemeral port, or [preferredPort] (falling back to nearby ports if taken). */
+        private fun bindServerSocket(preferredPort: Int?): ServerSocket {
+            val address = InetAddress.getByName(LOOPBACK_ADDRESS)
+            if (preferredPort == null) return ServerSocket(0, 50, address)
+
+            var lastError: IOException? = null
+            for (offset in 0 until PORT_FALLBACK_ATTEMPTS) {
+                try {
+                    return ServerSocket(preferredPort + offset, 50, address)
+                } catch (e: IOException) {
+                    lastError = e
+                }
+            }
+            throw lastError ?: IOException("Unable to bind proxy port")
+        }
     }
 }
