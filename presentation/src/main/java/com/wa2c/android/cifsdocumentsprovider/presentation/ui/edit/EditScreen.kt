@@ -9,6 +9,8 @@ import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
 import android.net.Uri
+import android.os.PowerManager
+import android.provider.Settings
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -36,6 +38,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
@@ -59,6 +62,8 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -332,6 +337,16 @@ fun EditScreen(
 }
 
 /**
+ * Whether this app is exempt from battery optimization - if not, Android can freeze/kill the
+ * background process running the dixsu proxy (and its WorkManager foreground service) once the
+ * app isn't in the foreground, especially on OEM battery managers stricter than stock Android.
+ */
+private fun isIgnoringBatteryOptimizations(context: Context): Boolean {
+    val powerManager = context.getSystemService(Context.POWER_SERVICE) as? PowerManager ?: return true
+    return powerManager.isIgnoringBatteryOptimizations(context.packageName)
+}
+
+/**
  * Edit Screen
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalComposeUiApi::class)
@@ -355,6 +370,18 @@ private fun EditScreenContainer(
     onClickSave: () -> Unit,
 ) {
     val focusManager = LocalFocusManager.current
+    val batteryContext = LocalContext.current
+    val batteryLifecycleOwner = LocalLifecycleOwner.current
+    var batteryUnrestricted by remember { mutableStateOf(isIgnoringBatteryOptimizations(batteryContext)) }
+    DisposableEffect(batteryLifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                batteryUnrestricted = isIgnoringBatteryOptimizations(batteryContext)
+            }
+        }
+        batteryLifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { batteryLifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     Scaffold(
         topBar = {
@@ -535,6 +562,26 @@ private fun EditScreenContainer(
                                 fontSize = 12.sp,
                                 modifier = Modifier.padding(bottom = Theme.Sizes.S),
                             )
+                            if (!batteryUnrestricted) {
+                                Text(
+                                    text = stringResource(id = R.string.edit_dixsu_proxy_battery_warning),
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.padding(bottom = Theme.Sizes.S),
+                                )
+                                OutlinedButton(
+                                    onClick = {
+                                        val intent = Intent(
+                                            Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                                            Uri.parse("package:${batteryContext.packageName}"),
+                                        )
+                                        batteryContext.startActivity(intent)
+                                    },
+                                    modifier = Modifier.padding(bottom = Theme.Sizes.S),
+                                ) {
+                                    Text(stringResource(id = R.string.edit_dixsu_proxy_battery_button))
+                                }
+                            }
                             if (dixsuProxyPort != null) {
                                 Text(
                                     text = stringResource(id = R.string.edit_dixsu_proxy_active, dixsuProxyPort),
