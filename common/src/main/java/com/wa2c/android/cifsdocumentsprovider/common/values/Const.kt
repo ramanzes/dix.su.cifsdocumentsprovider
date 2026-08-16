@@ -24,6 +24,8 @@ const val NOTIFICATION_CHANNEL_ID_SEND = "notification_channel_send"
 const val NOTIFICATION_ID_SEND = 100
 const val NOTIFICATION_CHANNEL_ID_PROVIDER = "notification_channel_provider"
 const val NOTIFICATION_ID_PROVIDER = 101
+const val NOTIFICATION_CHANNEL_ID_DIXSU_PROXY = "notification_channel_dixsu_proxy"
+const val NOTIFICATION_ID_DIXSU_PROXY = 102
 
 const val DEFAULT_FTPS_IMPLICIT_PORT = 990
 

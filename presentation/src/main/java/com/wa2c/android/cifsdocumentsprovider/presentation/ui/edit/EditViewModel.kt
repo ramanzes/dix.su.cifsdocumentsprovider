@@ -1,10 +1,16 @@
 package com.wa2c.android.cifsdocumentsprovider.presentation.ui.edit
 
+import android.content.Context
 import android.net.Uri
 import androidx.core.net.toUri
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.work.ExistingWorkPolicy
+import androidx.work.OneTimeWorkRequest
+import androidx.work.WorkInfo
+import androidx.work.WorkManager
+import androidx.work.workDataOf
 import com.wa2c.android.cifsdocumentsprovider.common.exception.EditException
 import com.wa2c.android.cifsdocumentsprovider.common.utils.generateUUID
 import com.wa2c.android.cifsdocumentsprovider.domain.model.ConnectionResult
@@ -13,7 +19,9 @@ import com.wa2c.android.cifsdocumentsprovider.domain.repository.EditRepository
 import com.wa2c.android.cifsdocumentsprovider.presentation.ext.MainCoroutineScope
 import com.wa2c.android.cifsdocumentsprovider.presentation.ui.EditScreenParamHost
 import com.wa2c.android.cifsdocumentsprovider.presentation.ui.EditScreenParamId
+import com.wa2c.android.cifsdocumentsprovider.presentation.worker.DixsuProxyWorker
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,6 +29,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.channelFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -31,9 +40,12 @@ import javax.inject.Inject
  */
 @HiltViewModel
 class EditViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val savedStateHandle: SavedStateHandle,
     private val editRepository: EditRepository,
 ) : ViewModel(), CoroutineScope by MainCoroutineScope() {
+
+    private val workManager: WorkManager by lazy { WorkManager.getInstance(context) }
 
     private val paramId: String? = savedStateHandle[EditScreenParamId]
     private val paramHost: String? = savedStateHandle[EditScreenParamHost]
@@ -61,6 +73,12 @@ class EditViewModel @Inject constructor(
                 editRepository.getConnection(paramId)?.also { initConnection = it }
             } ?: RemoteConnection(id = currentId, name = paramHost ?: "", host = paramHost ?: "")
             remoteConnection.emit(connection)
+
+            // reflect a proxy already running in the background (e.g. started on a previous visit)
+            val workInfos = workManager.getWorkInfosForUniqueWorkFlow(DixsuProxyWorker.workerName(connection.id)).first()
+            if (workInfos.any { !it.state.isFinished }) {
+                _dixsuProxyPort.emit(editRepository.startDixsuProxy(connection))
+            }
         }
     }
 
@@ -96,6 +114,50 @@ class EditViewModel @Inject constructor(
     // first: grant permission uri / second: revoke permission uri
     private val _updatePermission = MutableSharedFlow<Pair<Uri?, Uri?>>()
     val updatePermission = _updatePermission.asSharedFlow()
+
+    /** Local port of the standalone dixsu proxy, if currently running for this connection */
+    private val _dixsuProxyPort = MutableStateFlow<Int?>(null)
+    val dixsuProxyPort = _dixsuProxyPort.asStateFlow()
+
+    /**
+     * Start local SFTP proxy (for third-party backup/sync apps to connect to directly)
+     */
+    fun onClickStartDixsuProxy() {
+        launch {
+            _isBusy.emit(true)
+            runCatching {
+                val connection = remoteConnection.value
+                val port = editRepository.startDixsuProxy(connection) ?: throw IllegalStateException("Not a dixsu-tunnel connection")
+                val request = OneTimeWorkRequest.Builder(DixsuProxyWorker::class.java)
+                    .setInputData(
+                        workDataOf(
+                            DixsuProxyWorker.KEY_CONNECTION_ID to connection.id,
+                            DixsuProxyWorker.KEY_PORT to port,
+                        )
+                    )
+                    .build()
+                workManager.enqueueUniqueWork(DixsuProxyWorker.workerName(connection.id), ExistingWorkPolicy.REPLACE, request)
+                port
+            }.onSuccess {
+                _dixsuProxyPort.emit(it)
+            }.onFailure {
+                _connectionResult.emit(ConnectionResult.Failure(cause = it))
+            }
+            _isBusy.emit(false)
+        }
+    }
+
+    /**
+     * Stop local SFTP proxy
+     */
+    fun onClickStopDixsuProxy() {
+        launch {
+            val connection = remoteConnection.value
+            workManager.cancelUniqueWork(DixsuProxyWorker.workerName(connection.id))
+            editRepository.stopDixsuProxy(connection.id)
+            _dixsuProxyPort.emit(null)
+        }
+    }
 
     /**
      * Check connection

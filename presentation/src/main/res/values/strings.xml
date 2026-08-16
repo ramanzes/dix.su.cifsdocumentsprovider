@@ -60,6 +60,12 @@
     <string name="edit_dixsu_tunnel_label">dixsu tunnel</string>
     <string name="edit_dixsu_slug_title">Slug</string>
     <string name="edit_dixsu_slug_hint">Device slug on dix.su</string>
+    <string name="edit_dixsu_proxy_title">Local SFTP proxy</string>
+    <string name="edit_dixsu_proxy_hint">Lets other apps (e.g. backup/sync apps) connect directly by SFTP, using this connection\'s usual login, without going through this app\'s file browser.</string>
+    <string name="edit_dixsu_proxy_start">Start proxy</string>
+    <string name="edit_dixsu_proxy_stop">Stop proxy</string>
+    <string name="edit_dixsu_proxy_copy">Copy address</string>
+    <string name="edit_dixsu_proxy_active">Proxy running: 127.0.0.1:%1$d</string>
     <string name="edit_encoding_title">Character Code</string>
     <string name="edit_ftp_mode_title">Active Mode</string>
     <string name="edit_ftps_implicit_label">Implicit SSL/TLS Mode</string>
@@ -169,6 +175,9 @@
     <!-- Notification -->
     <string name="notification_channel_name_provider">File Open</string>
     <string name="notification_title_provider">Opening file</string>
+    <string name="notification_channel_name_dixsu_proxy">dixsu Proxy</string>
+    <string name="notification_title_dixsu_proxy">dixsu proxy running</string>
+    <string name="notification_text_dixsu_proxy">127.0.0.1:%1$d</string>
     <string name="notification_channel_name_send">Data Transfer</string>
     <string name="notification_title_send_completed">Completed</string>
     

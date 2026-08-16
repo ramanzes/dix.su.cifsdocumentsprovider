@@ -7,6 +7,7 @@ import com.wa2c.android.cifsdocumentsprovider.common.values.USER_GUEST
 import com.wa2c.android.cifsdocumentsprovider.data.db.ConnectionSettingDao
 import com.wa2c.android.cifsdocumentsprovider.data.storage.manager.DocumentFileManager
 import com.wa2c.android.cifsdocumentsprovider.data.storage.manager.SshKeyManager
+import com.wa2c.android.cifsdocumentsprovider.data.storage.interfaces.StorageConnection
 import com.wa2c.android.cifsdocumentsprovider.data.storage.manager.StorageClientManager
 import com.wa2c.android.cifsdocumentsprovider.domain.IoDispatcher
 import com.wa2c.android.cifsdocumentsprovider.domain.mapper.DomainMapper.toDataModel
@@ -159,6 +160,26 @@ class EditRepository @Inject internal constructor(
             } catch (e: Exception) {
                 throw EditException.KeyCheck.InvalidException(e)
             }
+        }
+    }
+
+    /**
+     * Start a standalone local SFTP proxy for a dixsu-tunnel connection (for third-party backup/
+     * sync apps to connect to directly). Returns the local port, or null if not a dixsu-tunnel
+     * connection.
+     */
+    suspend fun startDixsuProxy(connection: RemoteConnection): Int? {
+        logD("startDixsuProxy: connection=${connection.id}")
+        return withContext(dispatcher) {
+            val storageConnection = connection.toDataModel() as? StorageConnection.Sftp ?: return@withContext null
+            storageClientManager.startDixsuProxy(storageConnection)
+        }
+    }
+
+    suspend fun stopDixsuProxy(connectionId: String) {
+        logD("stopDixsuProxy: connectionId=$connectionId")
+        withContext(dispatcher) {
+            storageClientManager.stopDixsuProxy(connectionId)
         }
     }
 

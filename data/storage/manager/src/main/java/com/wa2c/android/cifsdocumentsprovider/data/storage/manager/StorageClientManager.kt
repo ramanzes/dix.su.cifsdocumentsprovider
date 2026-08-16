@@ -6,7 +6,9 @@ import com.wa2c.android.cifsdocumentsprovider.common.values.StorageType
 import com.wa2c.android.cifsdocumentsprovider.common.values.ThumbnailType
 import com.wa2c.android.cifsdocumentsprovider.data.storage.apache.ApacheFtpClient
 import com.wa2c.android.cifsdocumentsprovider.data.storage.apache.ApacheSftpClient
+import com.wa2c.android.cifsdocumentsprovider.data.storage.apache.DixsuProxyManager
 import com.wa2c.android.cifsdocumentsprovider.data.storage.interfaces.StorageClient
+import com.wa2c.android.cifsdocumentsprovider.data.storage.interfaces.StorageConnection
 import com.wa2c.android.cifsdocumentsprovider.data.storage.interfaces.StorageFile
 import com.wa2c.android.cifsdocumentsprovider.data.storage.interfaces.StorageRequest
 import com.wa2c.android.cifsdocumentsprovider.data.storage.jcifsng.JCifsNgClient
@@ -152,5 +154,19 @@ class StorageClientManager @Inject constructor(
 
     fun cancelThumbnailLoading() {
         fileDescriptorManager.cancelThumbnailLoading()
+    }
+
+    /**
+     * Start a standalone local SFTP proxy for a dixsu-tunnel connection, for third-party apps
+     * (e.g. backup/sync apps) to connect to directly. Returns null if the connection isn't a
+     * dixsu-tunnel connection.
+     */
+    fun startDixsuProxy(connection: StorageConnection.Sftp): Int? {
+        if (!connection.isDixsuTunnel || connection.dixsuSlug.isBlank()) return null
+        return DixsuProxyManager.start(connection.id, connection.dixsuSlug)
+    }
+
+    fun stopDixsuProxy(connectionId: String) {
+        DixsuProxyManager.stop(connectionId)
     }
 }

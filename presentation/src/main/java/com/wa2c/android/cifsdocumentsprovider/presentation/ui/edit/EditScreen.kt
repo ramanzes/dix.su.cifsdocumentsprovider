@@ -23,12 +23,14 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.BadgedBox
+import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -98,6 +100,10 @@ import com.wa2c.android.cifsdocumentsprovider.presentation.ui.edit.components.Ke
 import com.wa2c.android.cifsdocumentsprovider.presentation.ui.edit.components.SectionTitle
 import com.wa2c.android.cifsdocumentsprovider.presentation.ui.edit.components.SubsectionTitle
 import com.wa2c.android.cifsdocumentsprovider.presentation.ui.edit.components.UriText
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 import java.nio.charset.Charset
 
@@ -140,6 +146,9 @@ fun EditScreen(
         isBusy = viewModel.isBusy.collectAsStateWithLifecycle().value,
         connectionState = viewModel.remoteConnection.collectAsMutableState(),
         connectionResult = viewModel.connectionResult.collectAsStateWithLifecycle().value,
+        dixsuProxyPort = viewModel.dixsuProxyPort.collectAsStateWithLifecycle().value,
+        onClickStartDixsuProxy = { viewModel.onClickStartDixsuProxy() },
+        onClickStopDixsuProxy = { viewModel.onClickStopDixsuProxy() },
         onClickBack = {
             if (viewModel.isChanged) {
                 showBackConfirmationDialog = true
@@ -333,6 +342,9 @@ private fun EditScreenContainer(
     isBusy: Boolean,
     connectionState: MutableState<RemoteConnection>,
     connectionResult: ConnectionResult?,
+    dixsuProxyPort: Int?,
+    onClickStartDixsuProxy: () -> Unit,
+    onClickStopDixsuProxy: () -> Unit,
     onClickBack: () -> Unit,
     onClickDelete: () -> Unit,
     onClickSearchHost: () -> Unit,
@@ -514,6 +526,36 @@ private fun EditScreenContainer(
                                     host = "$slug$DIXSU_HOST_SUFFIX",
                                     port = DIXSU_PORT.toString(),
                                 )
+                            }
+
+                            // local proxy for third-party apps (backup/sync) to connect to directly
+                            SubsectionTitle(text = stringResource(id = R.string.edit_dixsu_proxy_title))
+                            Text(
+                                text = stringResource(id = R.string.edit_dixsu_proxy_hint),
+                                fontSize = 12.sp,
+                                modifier = Modifier.padding(bottom = Theme.Sizes.S),
+                            )
+                            if (dixsuProxyPort != null) {
+                                Text(
+                                    text = stringResource(id = R.string.edit_dixsu_proxy_active, dixsuProxyPort),
+                                    modifier = Modifier.padding(bottom = Theme.Sizes.S),
+                                )
+                                Row {
+                                    OutlinedButton(onClick = { onCopyToClipboard("127.0.0.1:$dixsuProxyPort") }) {
+                                        Text(stringResource(id = R.string.edit_dixsu_proxy_copy))
+                                    }
+                                    Spacer(modifier = Modifier.width(Theme.Sizes.S))
+                                    OutlinedButton(onClick = onClickStopDixsuProxy) {
+                                        Text(stringResource(id = R.string.edit_dixsu_proxy_stop))
+                                    }
+                                }
+                            } else {
+                                Button(
+                                    onClick = onClickStartDixsuProxy,
+                                    enabled = isBusy.not() && connectionState.value.dixsuSlug.isNotBlank(),
+                                ) {
+                                    Text(stringResource(id = R.string.edit_dixsu_proxy_start))
+                                }
                             }
                         }
                     }
@@ -845,6 +887,9 @@ private fun EditScreenPreview() {
             isBusy = false,
             connectionResult = null,
             connectionState = mutableStateOf(RemoteConnection(id = "test", host = "pc1")),
+            dixsuProxyPort = null,
+            onClickStartDixsuProxy = {},
+            onClickStopDixsuProxy = {},
             onClickBack = {},
             onClickDelete = {},
             onClickSearchHost = {},

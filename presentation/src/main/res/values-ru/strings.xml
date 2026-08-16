@@ -60,6 +60,12 @@
     <string name="edit_dixsu_tunnel_label">dixsu-туннель</string>
     <string name="edit_dixsu_slug_title">Слаг</string>
     <string name="edit_dixsu_slug_hint">Слаг устройства на dix.su</string>
+    <string name="edit_dixsu_proxy_title">Локальный SFTP-прокси</string>
+    <string name="edit_dixsu_proxy_hint">Позволяет другим приложениям (например, для бэкапа/синхронизации) подключаться напрямую по SFTP с обычным логином этого соединения, минуя файловый браузер этого приложения.</string>
+    <string name="edit_dixsu_proxy_start">Запустить прокси</string>
+    <string name="edit_dixsu_proxy_stop">Остановить прокси</string>
+    <string name="edit_dixsu_proxy_copy">Скопировать адрес</string>
+    <string name="edit_dixsu_proxy_active">Прокси запущен: 127.0.0.1:%1$d</string>
     <string name="edit_encoding_title">Кодировка символов</string>
     <string name="edit_ftp_mode_title">Активный режим</string>
     <string name="edit_ftps_implicit_label">Неявный SSL/TLS режим</string>
@@ -169,6 +175,9 @@
     <!-- Notification -->
     <string name="notification_channel_name_provider">Открыть файл</string>
     <string name="notification_title_provider">Открытие файла</string>
+    <string name="notification_channel_name_dixsu_proxy">dixsu-прокси</string>
+    <string name="notification_title_dixsu_proxy">dixsu-прокси запущен</string>
+    <string name="notification_text_dixsu_proxy">127.0.0.1:%1$d</string>
     <string name="notification_channel_name_send">Передача данных</string>
     <string name="notification_title_send_completed">Завершено</string>
     

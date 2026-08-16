@@ -63,6 +63,42 @@ internal object DixsuTunnelManager {
 }
 
 /**
+ * Standalone dixsu-tunnel forwarders for third-party apps (e.g. backup/sync apps) to connect to
+ * directly over plain SFTP at 127.0.0.1:<port>, bypassing this app's SAF/DocumentsProvider layer
+ * entirely. Deliberately a separate registry from [DixsuTunnelManager]: that one is torn down
+ * whenever a VFS client session closes (e.g. [ApacheVfsClient.close]), but a proxy started here
+ * is meant to keep running in the background independent of any SAF browsing activity.
+ */
+object DixsuProxyManager {
+
+    private val forwarders = ConcurrentHashMap<String, DixsuTunnelForwarder>()
+
+    /**
+     * Returns the local loopback port to connect to for the given connection, starting
+     * (or restarting, if the slug changed) the forwarder as needed. Safe to call repeatedly.
+     */
+    @Synchronized
+    fun start(connectionId: String, slug: String): Int {
+        val existing = forwarders[connectionId]
+        if (existing != null) {
+            if (existing.slug == slug && !existing.isClosed) {
+                return existing.localPort
+            }
+            existing.close()
+        }
+        return DixsuTunnelForwarder(slug).also {
+            it.start()
+            forwarders[connectionId] = it
+        }.localPort
+    }
+
+    @Synchronized
+    fun stop(connectionId: String) {
+        forwarders.remove(connectionId)?.close()
+    }
+}
+
+/**
  * Accepts local loopback connections and relays them to `<slug>.dix.su:2222`, sending the
  * "DIXSU:<slug>\n" preamble on the outbound socket before splicing bytes in both directions.
  */
