@@ -62,8 +62,7 @@
     <string name="edit_dixsu_slug_hint">Device slug on dix.su</string>
     <string name="edit_dixsu_proxy_title">Local SFTP proxy</string>
     <string name="edit_dixsu_proxy_hint">Lets other apps (e.g. backup/sync apps) connect directly by SFTP, using this connection\'s usual login, without going through this app\'s file browser.</string>
-    <string name="edit_dixsu_proxy_start">Start proxy</string>
-    <string name="edit_dixsu_proxy_stop">Stop proxy</string>
+    <string name="edit_dixsu_proxy_autostart_label">Keep proxy running (auto-restart if stopped)</string>
     <string name="edit_dixsu_proxy_copy">Copy address</string>
     <string name="edit_dixsu_proxy_active">Proxy running: 127.0.0.1:%1$d</string>
     <string name="edit_dixsu_proxy_battery_warning">Android may kill the proxy in the background unless this app is exempt from battery optimization.</string>

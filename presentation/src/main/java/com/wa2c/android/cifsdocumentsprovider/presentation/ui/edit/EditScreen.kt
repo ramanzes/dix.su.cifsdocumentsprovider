@@ -25,7 +25,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.BadgedBox
-import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -105,9 +104,6 @@ import com.wa2c.android.cifsdocumentsprovider.presentation.ui.edit.components.Ke
 import com.wa2c.android.cifsdocumentsprovider.presentation.ui.edit.components.SectionTitle
 import com.wa2c.android.cifsdocumentsprovider.presentation.ui.edit.components.SubsectionTitle
 import com.wa2c.android.cifsdocumentsprovider.presentation.ui.edit.components.UriText
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.width
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 import java.nio.charset.Charset
@@ -582,26 +578,22 @@ private fun EditScreenContainer(
                                     Text(stringResource(id = R.string.edit_dixsu_proxy_battery_button))
                                 }
                             }
+                            InputCheck(
+                                title = stringResource(id = R.string.edit_dixsu_proxy_autostart_label),
+                                value = connectionState.value.autoStartDixsuProxy,
+                                enabled = isBusy.not() && connectionState.value.dixsuSlug.isNotBlank(),
+                                focusManager = focusManager,
+                            ) { checked ->
+                                connectionState.value = connectionState.value.copy(autoStartDixsuProxy = checked)
+                                if (checked) onClickStartDixsuProxy() else onClickStopDixsuProxy()
+                            }
                             if (dixsuProxyPort != null) {
                                 Text(
                                     text = stringResource(id = R.string.edit_dixsu_proxy_active, dixsuProxyPort),
                                     modifier = Modifier.padding(bottom = Theme.Sizes.S),
                                 )
-                                Row {
-                                    OutlinedButton(onClick = { onCopyToClipboard("127.0.0.1:$dixsuProxyPort") }) {
-                                        Text(stringResource(id = R.string.edit_dixsu_proxy_copy))
-                                    }
-                                    Spacer(modifier = Modifier.width(Theme.Sizes.S))
-                                    OutlinedButton(onClick = onClickStopDixsuProxy) {
-                                        Text(stringResource(id = R.string.edit_dixsu_proxy_stop))
-                                    }
-                                }
-                            } else {
-                                Button(
-                                    onClick = onClickStartDixsuProxy,
-                                    enabled = isBusy.not() && connectionState.value.dixsuSlug.isNotBlank(),
-                                ) {
-                                    Text(stringResource(id = R.string.edit_dixsu_proxy_start))
+                                OutlinedButton(onClick = { onCopyToClipboard("127.0.0.1:$dixsuProxyPort") }) {
+                                    Text(stringResource(id = R.string.edit_dixsu_proxy_copy))
                                 }
                             }
                         }

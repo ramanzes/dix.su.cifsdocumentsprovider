@@ -114,5 +114,6 @@ sealed class StorageConnection {
         val encoding: String,
         val isDixsuTunnel: Boolean = false,
         val dixsuSlug: String = "",
+        val autoStartDixsuProxy: Boolean = false,
     ) : StorageConnection()
 }

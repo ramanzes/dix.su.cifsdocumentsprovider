@@ -39,6 +39,7 @@ data class RemoteConnection(
     val isFtpsImplicit: Boolean = false,
     val isDixsuTunnel: Boolean = false,
     val dixsuSlug: String = "",
+    val autoStartDixsuProxy: Boolean = false,
     // Options
     val optionSafeTransfer: Boolean = false,
     val optionReadOnly: Boolean = false,

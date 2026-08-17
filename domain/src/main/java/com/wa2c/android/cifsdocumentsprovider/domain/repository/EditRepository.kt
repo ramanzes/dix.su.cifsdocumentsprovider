@@ -21,6 +21,7 @@ import com.wa2c.android.cifsdocumentsprovider.domain.model.RemoteConnection
 import com.wa2c.android.cifsdocumentsprovider.domain.model.RemoteFile
 import com.wa2c.android.cifsdocumentsprovider.domain.model.StorageUri
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import java.util.Date
 import javax.inject.Inject
@@ -180,6 +181,18 @@ class EditRepository @Inject internal constructor(
         logD("stopDixsuProxy: connectionId=$connectionId")
         withContext(dispatcher) {
             storageClientManager.stopDixsuProxy(connectionId)
+        }
+    }
+
+    /**
+     * Connections with "keep proxy running" enabled - restarted on every app process start so
+     * the proxy comes back up without the user needing to revisit each connection's edit screen.
+     */
+    suspend fun getAutoStartDixsuConnections(): List<RemoteConnection> {
+        return withContext(dispatcher) {
+            connectionSettingDao.getList().first()
+                .map { it.toDataModel().toDomainModel() }
+                .filter { it.isDixsuTunnel && it.autoStartDixsuProxy }
         }
     }
 

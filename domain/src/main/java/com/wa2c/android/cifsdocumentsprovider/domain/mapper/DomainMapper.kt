@@ -175,6 +175,7 @@ internal object DomainMapper {
                     encoding = encoding,
                     isDixsuTunnel = isDixsuTunnel,
                     dixsuSlug = dixsuSlug,
+                    autoStartDixsuProxy = autoStartDixsuProxy,
                     optionSafeTransfer = safeTransfer,
                     optionReadOnly = readOnly,
                     optionThumbnailTypes = thumbnailTypes.mapNotNull { ThumbnailType.findByType(it) },
@@ -285,6 +286,7 @@ internal object DomainMapper {
                     encoding = encoding,
                     isDixsuTunnel = isDixsuTunnel,
                     dixsuSlug = dixsuSlug,
+                    autoStartDixsuProxy = autoStartDixsuProxy,
                 )
             }
         }

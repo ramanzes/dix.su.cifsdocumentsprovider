@@ -1,8 +1,11 @@
 package com.wa2c.android.cifsdocumentsprovider
 
 import android.app.Application
+import androidx.work.OneTimeWorkRequest
+import androidx.work.WorkManager
 import com.wa2c.android.cifsdocumentsprovider.common.utils.initLog
 import com.wa2c.android.cifsdocumentsprovider.domain.repository.AppRepository
+import com.wa2c.android.cifsdocumentsprovider.presentation.worker.DixsuAutoStartWorker
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.runBlocking
 import javax.inject.Inject
@@ -20,5 +23,7 @@ class App: Application() {
         runBlocking {
             repository.migrate()
         }
+
+        WorkManager.getInstance(this).enqueue(OneTimeWorkRequest.Builder(DixsuAutoStartWorker::class.java).build())
     }
 }

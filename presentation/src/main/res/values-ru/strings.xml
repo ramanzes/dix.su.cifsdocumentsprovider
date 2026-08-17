@@ -62,8 +62,7 @@
     <string name="edit_dixsu_slug_hint">Слаг устройства на dix.su</string>
     <string name="edit_dixsu_proxy_title">Локальный SFTP-прокси</string>
     <string name="edit_dixsu_proxy_hint">Позволяет другим приложениям (например, для бэкапа/синхронизации) подключаться напрямую по SFTP с обычным логином этого соединения, минуя файловый браузер этого приложения.</string>
-    <string name="edit_dixsu_proxy_start">Запустить прокси</string>
-    <string name="edit_dixsu_proxy_stop">Остановить прокси</string>
+    <string name="edit_dixsu_proxy_autostart_label">Держать прокси включённым (переподнимать, если упал)</string>
     <string name="edit_dixsu_proxy_copy">Скопировать адрес</string>
     <string name="edit_dixsu_proxy_active">Прокси запущен: 127.0.0.1:%1$d</string>
     <string name="edit_dixsu_proxy_battery_warning">Android может убить прокси в фоне, если для приложения не отключена оптимизация батареи.</string>
