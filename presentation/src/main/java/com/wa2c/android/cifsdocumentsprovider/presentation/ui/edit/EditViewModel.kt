@@ -8,7 +8,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequest
-import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import androidx.work.workDataOf
 import com.wa2c.android.cifsdocumentsprovider.common.exception.EditException
@@ -29,7 +28,6 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.channelFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -73,12 +71,6 @@ class EditViewModel @Inject constructor(
                 editRepository.getConnection(paramId)?.also { initConnection = it }
             } ?: RemoteConnection(id = currentId, name = paramHost ?: "", host = paramHost ?: "")
             remoteConnection.emit(connection)
-
-            // reflect a proxy already running in the background (e.g. started on a previous visit)
-            val workInfos = workManager.getWorkInfosForUniqueWorkFlow(DixsuProxyWorker.workerName(connection.id)).first()
-            if (workInfos.any { !it.state.isFinished }) {
-                _dixsuProxyPort.emit(editRepository.startDixsuProxy(connection))
-            }
         }
     }
 

@@ -38,3 +38,6 @@ const val DIXSU_HOST_SUFFIX = ".dix.su"
 const val DIXSU_PORT = 2222
 /** Preamble line sent right before the SSH handshake to route the connection to the target device. */
 const val DIXSU_PREAMBLE_PREFIX = "DIXSU:"
+/** Local loopback port range the standalone dixsu proxy (see [dixsuProxyPreferredPort]) picks from. */
+const val DIXSU_PROXY_PORT_RANGE_START = 40000
+const val DIXSU_PROXY_PORT_RANGE_SIZE = 10000

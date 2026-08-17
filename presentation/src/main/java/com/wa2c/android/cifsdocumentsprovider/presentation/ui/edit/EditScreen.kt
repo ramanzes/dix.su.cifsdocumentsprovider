@@ -67,6 +67,7 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wa2c.android.cifsdocumentsprovider.common.exception.StorageException
+import com.wa2c.android.cifsdocumentsprovider.common.utils.dixsuProxyPreferredPort
 import com.wa2c.android.cifsdocumentsprovider.common.utils.fileName
 import com.wa2c.android.cifsdocumentsprovider.common.utils.logD
 import com.wa2c.android.cifsdocumentsprovider.common.values.DIXSU_HOST_SUFFIX
@@ -587,12 +588,17 @@ private fun EditScreenContainer(
                                 connectionState.value = connectionState.value.copy(autoStartDixsuProxy = checked)
                                 if (checked) onClickStartDixsuProxy() else onClickStopDixsuProxy()
                             }
-                            if (dixsuProxyPort != null) {
+                            if (connectionState.value.dixsuSlug.isNotBlank()) {
+                                // dixsuProxyPort (confirmed live, known for certain once started this
+                                // session) takes priority; otherwise fall back to the deterministic
+                                // address this connection's proxy always uses - always show something,
+                                // don't hide it behind "have we confirmed it's currently running".
+                                val displayPort = dixsuProxyPort ?: dixsuProxyPreferredPort(connectionState.value.id)
                                 Text(
-                                    text = stringResource(id = R.string.edit_dixsu_proxy_active, dixsuProxyPort),
+                                    text = stringResource(id = R.string.edit_dixsu_proxy_address, displayPort),
                                     modifier = Modifier.padding(bottom = Theme.Sizes.S),
                                 )
-                                OutlinedButton(onClick = { onCopyToClipboard("127.0.0.1:$dixsuProxyPort") }) {
+                                OutlinedButton(onClick = { onCopyToClipboard("127.0.0.1:$displayPort") }) {
                                     Text(stringResource(id = R.string.edit_dixsu_proxy_copy))
                                 }
                             }

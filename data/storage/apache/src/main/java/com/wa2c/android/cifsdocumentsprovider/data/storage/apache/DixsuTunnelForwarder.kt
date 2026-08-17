@@ -1,5 +1,6 @@
 package com.wa2c.android.cifsdocumentsprovider.data.storage.apache
 
+import com.wa2c.android.cifsdocumentsprovider.common.utils.dixsuProxyPreferredPort
 import com.wa2c.android.cifsdocumentsprovider.common.utils.logD
 import com.wa2c.android.cifsdocumentsprovider.common.utils.logE
 import com.wa2c.android.cifsdocumentsprovider.common.values.CONNECTION_TIMEOUT
@@ -91,7 +92,7 @@ object DixsuProxyManager {
             }
             existing.close()
         }
-        return DixsuTunnelForwarder(slug, preferredPort = preferredPort(connectionId)).also {
+        return DixsuTunnelForwarder(slug, preferredPort = dixsuProxyPreferredPort(connectionId)).also {
             it.start()
             forwarders[connectionId] = it
         }.localPort
@@ -101,14 +102,6 @@ object DixsuProxyManager {
     fun stop(connectionId: String) {
         forwarders.remove(connectionId)?.close()
     }
-
-    /** Deterministic port for a connection ID, stable across app/proxy restarts. */
-    private fun preferredPort(connectionId: String): Int {
-        return PORT_RANGE_START + (connectionId.hashCode() and Int.MAX_VALUE) % PORT_RANGE_SIZE
-    }
-
-    private const val PORT_RANGE_START = 40000
-    private const val PORT_RANGE_SIZE = 10000
 }
 
 /**
