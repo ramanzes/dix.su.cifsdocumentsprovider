@@ -25,6 +25,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.BadgedBox
+import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -106,6 +107,7 @@ import com.wa2c.android.cifsdocumentsprovider.presentation.ui.edit.components.Se
 import com.wa2c.android.cifsdocumentsprovider.presentation.ui.edit.components.SubsectionTitle
 import com.wa2c.android.cifsdocumentsprovider.presentation.ui.edit.components.UriText
 import androidx.compose.ui.unit.sp
+import androidx.documentfile.provider.DocumentFile
 import kotlinx.coroutines.launch
 import java.nio.charset.Charset
 
@@ -139,6 +141,11 @@ fun EditScreen(
         uri?.let { viewModel.importKey(it) }
     }
 
+    val backupFolderOpenLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        logD(uri)
+        uri?.let { viewModel.selectBackupFolder(it) }
+    }
+
     selectedHost?.let { viewModel.remoteConnection.value = viewModel.remoteConnection.value.copy(host = it) }
     selectedUri?.let { viewModel.remoteConnection.value = viewModel.remoteConnection.value.copy(folder = it.path) }
 
@@ -151,6 +158,9 @@ fun EditScreen(
         dixsuProxyPort = viewModel.dixsuProxyPort.collectAsStateWithLifecycle().value,
         onClickStartDixsuProxy = { viewModel.onClickStartDixsuProxy() },
         onClickStopDixsuProxy = { viewModel.onClickStopDixsuProxy() },
+        onClickSelectBackupFolder = { backupFolderOpenLauncher.launch(null) },
+        onClickClearBackupFolder = { viewModel.clearBackupFolder() },
+        onClickSyncNow = { viewModel.onClickSyncNow() },
         onClickBack = {
             if (viewModel.isChanged) {
                 showBackConfirmationDialog = true
@@ -357,6 +367,9 @@ private fun EditScreenContainer(
     dixsuProxyPort: Int?,
     onClickStartDixsuProxy: () -> Unit,
     onClickStopDixsuProxy: () -> Unit,
+    onClickSelectBackupFolder: () -> Unit,
+    onClickClearBackupFolder: () -> Unit,
+    onClickSyncNow: () -> Unit,
     onClickBack: () -> Unit,
     onClickDelete: () -> Unit,
     onClickSearchHost: () -> Unit,
@@ -870,6 +883,46 @@ private fun EditScreenContainer(
                         connectionState.value = connectionState.value.copy(optionThumbnailTypes = it.toList())
                     }
 
+                    // Backup
+
+                    SectionTitle(
+                        text = stringResource(id = R.string.edit_backup_section_title),
+                    )
+                    Text(
+                        text = stringResource(id = R.string.edit_backup_hint),
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(bottom = Theme.Sizes.S),
+                    )
+                    connectionState.value.backupLocalFolderUri.let { backupFolderUri ->
+                        if (backupFolderUri != null) {
+                            val backupFolderName = remember(backupFolderUri) {
+                                runCatching { DocumentFile.fromTreeUri(batteryContext, Uri.parse(backupFolderUri))?.name }
+                                    .getOrNull() ?: backupFolderUri
+                            }
+                            Text(
+                                text = stringResource(id = R.string.edit_backup_folder_selected, backupFolderName ?: ""),
+                                modifier = Modifier.padding(bottom = Theme.Sizes.S),
+                            )
+                            Button(
+                                onClick = onClickSyncNow,
+                                enabled = isBusy.not(),
+                                modifier = Modifier.padding(bottom = Theme.Sizes.S),
+                            ) {
+                                Text(stringResource(id = R.string.edit_backup_sync_now))
+                            }
+                            OutlinedButton(onClick = onClickSelectBackupFolder) {
+                                Text(stringResource(id = R.string.edit_backup_change_folder))
+                            }
+                            OutlinedButton(onClick = onClickClearBackupFolder) {
+                                Text(stringResource(id = R.string.edit_backup_remove_folder))
+                            }
+                        } else {
+                            Button(onClick = onClickSelectBackupFolder) {
+                                Text(stringResource(id = R.string.edit_backup_select_folder))
+                            }
+                        }
+                    }
+
                     // URI
 
                     SectionTitle(
@@ -935,6 +988,9 @@ private fun EditScreenPreview() {
             dixsuProxyPort = null,
             onClickStartDixsuProxy = {},
             onClickStopDixsuProxy = {},
+            onClickSelectBackupFolder = {},
+            onClickClearBackupFolder = {},
+            onClickSyncNow = {},
             onClickBack = {},
             onClickDelete = {},
             onClickSearchHost = {},

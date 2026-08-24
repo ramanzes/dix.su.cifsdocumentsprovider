@@ -81,6 +81,15 @@
     <string name="edit_option_thumbnail_audio">Audio</string>
     <string name="edit_option_thumbnail_video">Video</string>
     <string name="edit_option_thumbnail_disabled">Disabled</string>
+
+    <string name="edit_backup_section_title">Backup</string>
+    <string name="edit_backup_hint">Upload new files (by name) from a local folder into this connection\'s root while the app is open. Reliable, but only runs while you\'re actually looking at this screen.</string>
+    <string name="edit_backup_select_folder">Select folder to back up</string>
+    <string name="edit_backup_change_folder">Change folder</string>
+    <string name="edit_backup_remove_folder">Remove</string>
+    <string name="edit_backup_folder_selected">Backing up: %1$s</string>
+    <string name="edit_backup_sync_now">Sync now</string>
+
     <string name="edit_info_section_title">Information</string>
     <string name="edit_storage_uri_title">Storage URI</string>
     <string name="edit_provider_uri_title">Shared URI</string>

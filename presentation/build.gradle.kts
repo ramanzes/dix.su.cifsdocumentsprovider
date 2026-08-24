@@ -77,6 +77,7 @@ dependencies {
     implementation(libs.androidx.hilt.navigation.compose)
     // Worker
     implementation(libs.androidx.work.runtime)
+    implementation(libs.androidx.documentfile)
     implementation(libs.guava) // to solve dependencies conflict
 
     // Util

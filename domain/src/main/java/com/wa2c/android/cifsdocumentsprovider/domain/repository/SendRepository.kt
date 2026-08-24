@@ -36,6 +36,20 @@ class SendRepository @Inject internal constructor(
         _sendDataList.emit(sendDataList.value + inputList)
     }
 
+    /**
+     * Like [sendUri], but for unattended backup-style sends: files that already exist at the
+     * target are skipped outright instead of being queued in [SendDataState.CONFIRM] awaiting a
+     * user decision - there's no one watching to confirm an overwrite.
+     */
+    suspend fun sendUriSkippingExisting(sourceUriList: List<Uri>, targetUri: Uri) {
+        val inputList = sourceUriList.mapNotNull { uri ->
+            val (storageFile, mimeType) = documentFileManager.getStorageFileAndMimeType(uri) ?: return@mapNotNull null
+            if (documentFileManager.existsFile(targetUri, storageFile.name)) return@mapNotNull null
+            storageFile.toSendData(mimeType, targetUri, exists = false)
+        }
+        _sendDataList.emit(sendDataList.value + inputList)
+    }
+
     suspend fun start(toReadyConfirm: Boolean) {
         val list = sendDataList.value.map { data ->
             if (data.state == SendDataState.CONFIRM) {

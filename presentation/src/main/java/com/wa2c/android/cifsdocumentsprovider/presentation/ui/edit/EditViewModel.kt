@@ -3,6 +3,7 @@ package com.wa2c.android.cifsdocumentsprovider.presentation.ui.edit
 import android.content.Context
 import android.net.Uri
 import androidx.core.net.toUri
+import androidx.documentfile.provider.DocumentFile
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -12,9 +13,13 @@ import androidx.work.WorkManager
 import androidx.work.workDataOf
 import com.wa2c.android.cifsdocumentsprovider.common.exception.EditException
 import com.wa2c.android.cifsdocumentsprovider.common.utils.generateUUID
+import com.wa2c.android.cifsdocumentsprovider.common.values.URI_AUTHORITY
+import com.wa2c.android.cifsdocumentsprovider.common.values.URI_START
 import com.wa2c.android.cifsdocumentsprovider.domain.model.ConnectionResult
+import com.wa2c.android.cifsdocumentsprovider.domain.model.DocumentId
 import com.wa2c.android.cifsdocumentsprovider.domain.model.RemoteConnection
 import com.wa2c.android.cifsdocumentsprovider.domain.repository.EditRepository
+import com.wa2c.android.cifsdocumentsprovider.domain.repository.SendRepository
 import com.wa2c.android.cifsdocumentsprovider.presentation.ext.MainCoroutineScope
 import com.wa2c.android.cifsdocumentsprovider.presentation.ui.EditScreenParamHost
 import com.wa2c.android.cifsdocumentsprovider.presentation.ui.EditScreenParamId
@@ -41,6 +46,7 @@ class EditViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val savedStateHandle: SavedStateHandle,
     private val editRepository: EditRepository,
+    private val sendRepository: SendRepository,
 ) : ViewModel(), CoroutineScope by MainCoroutineScope() {
 
     private val workManager: WorkManager by lazy { WorkManager.getInstance(context) }
@@ -152,6 +158,50 @@ class EditViewModel @Inject constructor(
     }
 
     /**
+     * Local folder picked to back up into this connection
+     */
+    fun selectBackupFolder(uri: Uri) {
+        launch {
+            remoteConnection.emit(remoteConnection.value.copy(backupLocalFolderUri = uri.toString()))
+        }
+    }
+
+    fun clearBackupFolder() {
+        launch {
+            remoteConnection.emit(remoteConnection.value.copy(backupLocalFolderUri = null))
+        }
+    }
+
+    /**
+     * Upload every new file (by name) from the backup folder into this connection's root, while
+     * the app is in the foreground - the reliable counterpart to the background auto-proxy, not
+     * subject to Android's background-execution limits since nothing here runs once the screen
+     * closes.
+     */
+    fun onClickSyncNow() {
+        launch {
+            _isBusy.emit(true)
+            runCatching {
+                val connection = remoteConnection.value
+                val folderUri = connection.backupLocalFolderUri?.toUri()
+                    ?: throw IllegalStateException("No backup folder selected")
+                val documentId = DocumentId.fromConnection(connection.id)
+                    ?: throw IllegalStateException("Invalid connection")
+                val targetUri = "content$URI_START$URI_AUTHORITY/tree/${Uri.encode(documentId.idText)}".toUri()
+                val sourceUris = DocumentFile.fromTreeUri(context, folderUri)
+                    ?.listFiles()
+                    ?.filter { it.isFile }
+                    ?.mapNotNull { it.uri }
+                    ?: emptyList()
+                sendRepository.sendUriSkippingExisting(sourceUris, targetUri)
+            }.onFailure {
+                _connectionResult.emit(ConnectionResult.Failure(cause = it))
+            }
+            _isBusy.emit(false)
+        }
+    }
+
+    /**
      * Check connection
      */
     fun onClickCheckConnection(addKnownHost: Boolean = false) {
@@ -241,6 +291,8 @@ class EditViewModel @Inject constructor(
                     // update permission
                     val grantPermissionUri = con.keyFileUri?.toUri()
                     _updatePermission.emit(grantPermissionUri to null) // not revoke permission
+                    val grantBackupFolderUri = con.backupLocalFolderUri?.toUri()
+                    _updatePermission.emit(grantBackupFolderUri to null) // not revoke permission
 
                     currentId = con.id
                     initConnection = con

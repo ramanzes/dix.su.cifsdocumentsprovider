@@ -81,6 +81,15 @@
     <string name="edit_option_thumbnail_audio">Аудио</string>
     <string name="edit_option_thumbnail_video">Видео</string>
     <string name="edit_option_thumbnail_disabled">Отключено</string>
+
+    <string name="edit_backup_section_title">Бэкап</string>
+    <string name="edit_backup_hint">Загружает новые файлы (по имени) из локальной папки в корень этого соединения, пока приложение открыто. Надёжно, но работает только пока экран реально открыт.</string>
+    <string name="edit_backup_select_folder">Выбрать папку для бэкапа</string>
+    <string name="edit_backup_change_folder">Сменить папку</string>
+    <string name="edit_backup_remove_folder">Убрать</string>
+    <string name="edit_backup_folder_selected">Бэкапится: %1$s</string>
+    <string name="edit_backup_sync_now">Синхронизировать сейчас</string>
+
     <string name="edit_info_section_title">Информация</string>
     <string name="edit_storage_uri_title">URI хранилища</string>
     <string name="edit_provider_uri_title">Общий URI</string>

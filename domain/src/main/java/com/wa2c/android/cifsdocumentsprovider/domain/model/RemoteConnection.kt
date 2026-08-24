@@ -40,6 +40,7 @@ data class RemoteConnection(
     val isDixsuTunnel: Boolean = false,
     val dixsuSlug: String = "",
     val autoStartDixsuProxy: Boolean = false,
+    val backupLocalFolderUri: String? = null,
     // Options
     val optionSafeTransfer: Boolean = false,
     val optionReadOnly: Boolean = false,

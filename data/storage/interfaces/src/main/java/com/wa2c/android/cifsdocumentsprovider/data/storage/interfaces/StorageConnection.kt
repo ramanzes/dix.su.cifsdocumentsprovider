@@ -115,5 +115,6 @@ sealed class StorageConnection {
         val isDixsuTunnel: Boolean = false,
         val dixsuSlug: String = "",
         val autoStartDixsuProxy: Boolean = false,
+        val backupLocalFolderUri: String? = null,
     ) : StorageConnection()
 }

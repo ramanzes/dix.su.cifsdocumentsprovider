@@ -176,6 +176,7 @@ internal object DomainMapper {
                     isDixsuTunnel = isDixsuTunnel,
                     dixsuSlug = dixsuSlug,
                     autoStartDixsuProxy = autoStartDixsuProxy,
+                    backupLocalFolderUri = backupLocalFolderUri,
                     optionSafeTransfer = safeTransfer,
                     optionReadOnly = readOnly,
                     optionThumbnailTypes = thumbnailTypes.mapNotNull { ThumbnailType.findByType(it) },
@@ -287,6 +288,7 @@ internal object DomainMapper {
                     isDixsuTunnel = isDixsuTunnel,
                     dixsuSlug = dixsuSlug,
                     autoStartDixsuProxy = autoStartDixsuProxy,
+                    backupLocalFolderUri = backupLocalFolderUri,
                 )
             }
         }
