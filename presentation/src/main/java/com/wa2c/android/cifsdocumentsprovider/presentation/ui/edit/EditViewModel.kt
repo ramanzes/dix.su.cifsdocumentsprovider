@@ -3,7 +3,6 @@ package com.wa2c.android.cifsdocumentsprovider.presentation.ui.edit
 import android.content.Context
 import android.net.Uri
 import androidx.core.net.toUri
-import androidx.documentfile.provider.DocumentFile
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -188,12 +187,7 @@ class EditViewModel @Inject constructor(
                 val documentId = DocumentId.fromConnection(connection.id)
                     ?: throw IllegalStateException("Invalid connection")
                 val targetUri = "content$URI_START$URI_AUTHORITY/tree/${Uri.encode(documentId.idText)}".toUri()
-                val sourceUris = DocumentFile.fromTreeUri(context, folderUri)
-                    ?.listFiles()
-                    ?.filter { it.isFile }
-                    ?.mapNotNull { it.uri }
-                    ?: emptyList()
-                sendRepository.sendUriSkippingExisting(sourceUris, targetUri)
+                sendRepository.sendFolderSkippingExisting(folderUri, targetUri)
             }.onFailure {
                 _connectionResult.emit(ConnectionResult.Failure(cause = it))
             }

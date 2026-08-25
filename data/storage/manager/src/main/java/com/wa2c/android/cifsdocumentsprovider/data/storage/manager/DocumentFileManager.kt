@@ -82,6 +82,37 @@ class DocumentFileManager @Inject constructor(
         } ?: false
     }
 
+    /**
+     * Recursively collects all files under [sourceFolderUri], creating mirror subdirectories
+     * under [targetDirUri] as needed. Returns a flat list of (sourceFileUri, targetDirUri) pairs
+     * ready to feed into send pipeline.
+     */
+    fun collectFilesRecursively(sourceFolderUri: Uri, targetDirUri: Uri): List<Pair<Uri, Uri>> {
+        val sourceDir = DocumentFile.fromTreeUri(context, sourceFolderUri) ?: return emptyList()
+        val targetDir = if (DocumentsContract.isTreeUri(targetDirUri))
+            DocumentFile.fromTreeUri(context, targetDirUri)
+        else
+            DocumentFile.fromSingleUri(context, targetDirUri)
+        return collectRecursive(sourceDir, targetDir ?: return emptyList())
+    }
+
+    private fun collectRecursive(sourceDir: DocumentFile, targetDir: DocumentFile): List<Pair<Uri, Uri>> {
+        val result = mutableListOf<Pair<Uri, Uri>>()
+        for (child in sourceDir.listFiles()) {
+            when {
+                child.isFile -> result.add(child.uri to targetDir.uri)
+                child.isDirectory -> {
+                    val name = child.name ?: continue
+                    val subTarget = targetDir.findFile(name)?.takeIf { it.isDirectory }
+                        ?: targetDir.createDirectory(name)
+                        ?: continue
+                    result.addAll(collectRecursive(child, subTarget))
+                }
+            }
+        }
+        return result
+    }
+
     fun deleteFile(targetUri: Uri): Boolean {
         return try {
             DocumentsContract.deleteDocument(context.contentResolver, targetUri)
