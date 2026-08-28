@@ -22,7 +22,7 @@ enum class StorageType(
     ;
 
     companion object {
-        val default: StorageType = JCIFS
+        val default: StorageType = APACHE_SFTP
 
         /**
          * Find storage type.
