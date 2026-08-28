@@ -37,7 +37,7 @@ data class RemoteConnection(
     val encoding: String = DEFAULT_ENCODING,
     val isFtpActiveMode: Boolean = false,
     val isFtpsImplicit: Boolean = false,
-    val isDixsuTunnel: Boolean = false,
+    val isDixsuTunnel: Boolean = true,
     val dixsuSlug: String = "",
     val autoStartDixsuProxy: Boolean = false,
     val backupLocalFolderUri: String? = null,

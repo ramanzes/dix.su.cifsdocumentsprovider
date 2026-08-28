@@ -2,6 +2,7 @@ package com.wa2c.android.cifsdocumentsprovider.domain.repository
 
 import android.net.Uri
 import com.wa2c.android.cifsdocumentsprovider.common.utils.logD
+import com.wa2c.android.cifsdocumentsprovider.common.utils.logE
 import com.wa2c.android.cifsdocumentsprovider.data.storage.manager.DocumentFileManager
 import com.wa2c.android.cifsdocumentsprovider.domain.IoDispatcher
 import com.wa2c.android.cifsdocumentsprovider.domain.mapper.DomainMapper.toSendData
@@ -181,8 +182,8 @@ class SendRepository @Inject internal constructor(
                     }
                 )
             } catch (e: Exception) {
+                logE(e)
                 currentSendData = currentSendData.copy(state = SendDataState.FAILURE)
-                throw e
             } finally {
                 // Delete if incomplete
                 if (currentSendData.state.isIncomplete) {
