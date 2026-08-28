@@ -2,7 +2,7 @@
 
 Форк [wa2c/cifs-documents-provider](https://github.com/wa2c/cifs-documents-provider), базовая версия Ver.2.4.0(31).
 
-## [Unreleased]
+## [v2.4.0-dixsu.8] — 2026-08-28
 
 ### Добавлено
 - Тумблер **«dixsu tunnel»** в форме SFTP-соединения. При включении:
