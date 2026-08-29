@@ -6,8 +6,10 @@ import androidx.core.net.toUri
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequest
+import androidx.work.PeriodicWorkRequest
 import androidx.work.WorkManager
 import androidx.work.workDataOf
 import com.wa2c.android.cifsdocumentsprovider.common.exception.EditException
@@ -22,6 +24,7 @@ import com.wa2c.android.cifsdocumentsprovider.domain.repository.SendRepository
 import com.wa2c.android.cifsdocumentsprovider.presentation.ext.MainCoroutineScope
 import com.wa2c.android.cifsdocumentsprovider.presentation.ui.EditScreenParamHost
 import com.wa2c.android.cifsdocumentsprovider.presentation.ui.EditScreenParamId
+import com.wa2c.android.cifsdocumentsprovider.presentation.worker.BackupSyncWorker
 import com.wa2c.android.cifsdocumentsprovider.presentation.worker.DixsuProxyWorker
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -35,6 +38,7 @@ import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
 /**
@@ -253,6 +257,7 @@ class EditViewModel @Inject constructor(
             _isBusy.emit(true)
             runCatching {
                 editRepository.deleteConnection(currentId)
+                workManager.cancelUniqueWork(BackupSyncWorker.workerName(currentId))
             }.onSuccess {
                 _result.emit(Result.success(Unit))
                 _isBusy.emit(false)
@@ -287,6 +292,17 @@ class EditViewModel @Inject constructor(
                     _updatePermission.emit(grantPermissionUri to null) // not revoke permission
                     val grantBackupFolderUri = con.backupLocalFolderUri?.toUri()
                     _updatePermission.emit(grantBackupFolderUri to null) // not revoke permission
+
+                    // reconcile periodic background backup
+                    val backupWorkName = BackupSyncWorker.workerName(con.id)
+                    if (con.autoBackupEnabled && !con.backupLocalFolderUri.isNullOrEmpty()) {
+                        val request = PeriodicWorkRequest.Builder(BackupSyncWorker::class.java, PeriodicWorkRequest.MIN_PERIODIC_INTERVAL_MILLIS, TimeUnit.MILLISECONDS)
+                            .setInputData(workDataOf(BackupSyncWorker.KEY_CONNECTION_ID to con.id))
+                            .build()
+                        workManager.enqueueUniquePeriodicWork(backupWorkName, ExistingPeriodicWorkPolicy.UPDATE, request)
+                    } else {
+                        workManager.cancelUniqueWork(backupWorkName)
+                    }
 
                     currentId = con.id
                     initConnection = con

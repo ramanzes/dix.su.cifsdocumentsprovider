@@ -919,6 +919,19 @@ private fun EditScreenContainer(
                             OutlinedButton(onClick = onClickClearBackupFolder) {
                                 Text(stringResource(id = R.string.edit_backup_remove_folder))
                             }
+                            InputCheck(
+                                title = stringResource(id = R.string.edit_backup_auto_label),
+                                value = connectionState.value.autoBackupEnabled,
+                                enabled = isBusy.not(),
+                                focusManager = focusManager,
+                            ) { checked ->
+                                connectionState.value = connectionState.value.copy(autoBackupEnabled = checked)
+                            }
+                            Text(
+                                text = stringResource(id = R.string.edit_backup_auto_hint),
+                                fontSize = 12.sp,
+                                modifier = Modifier.padding(bottom = Theme.Sizes.S),
+                            )
                         } else {
                             Button(onClick = onClickSelectBackupFolder) {
                                 Text(stringResource(id = R.string.edit_backup_select_folder))

@@ -177,6 +177,7 @@ internal object DomainMapper {
                     dixsuSlug = dixsuSlug,
                     autoStartDixsuProxy = autoStartDixsuProxy,
                     backupLocalFolderUri = backupLocalFolderUri,
+                    autoBackupEnabled = autoBackupEnabled,
                     optionSafeTransfer = safeTransfer,
                     optionReadOnly = readOnly,
                     optionThumbnailTypes = thumbnailTypes.mapNotNull { ThumbnailType.findByType(it) },
@@ -289,6 +290,7 @@ internal object DomainMapper {
                     dixsuSlug = dixsuSlug,
                     autoStartDixsuProxy = autoStartDixsuProxy,
                     backupLocalFolderUri = backupLocalFolderUri,
+                    autoBackupEnabled = autoBackupEnabled,
                 )
             }
         }
