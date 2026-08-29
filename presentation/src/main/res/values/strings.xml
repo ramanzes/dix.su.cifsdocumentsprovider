@@ -129,6 +129,9 @@
     <string name="folder_set">Set Folder</string>
     <string name="folder_reload_button">Reload</string>
     <string name="folder_list_empty">No sub folders</string>
+    <string name="folder_new_button">New folder</string>
+    <string name="folder_new_dialog_title">New folder</string>
+    <string name="folder_new_dialog_hint">Folder name</string>
     
     <!-- Settings Screen -->
     <string name="settings_title">Settings</string>

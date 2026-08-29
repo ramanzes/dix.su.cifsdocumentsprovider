@@ -110,6 +110,19 @@ class EditRepository @Inject internal constructor(
     }
 
     /**
+     * Create a new directory named [name] inside [parentUri], while browsing to pick a folder.
+     */
+    suspend fun createRemoteDirectory(connection: RemoteConnection, parentUri: StorageUri, name: String): StorageUri {
+        logD("createRemoteDirectory: connection=$connection, parentUri=$parentUri, name=$name")
+        return withContext(dispatcher) {
+            val targetUri = parentUri.addPath("$name/")
+            val request = connection.toDataModel().toStorageRequest().replacePathByUri(targetUri.text)
+            storageClientManager.createDirectory(request)
+            targetUri
+        }
+    }
+
+    /**
      * Check setting connectivity.
      */
     suspend fun checkConnection(connection: RemoteConnection): ConnectionResult {

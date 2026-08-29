@@ -23,8 +23,11 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
@@ -48,6 +51,7 @@ import com.wa2c.android.cifsdocumentsprovider.presentation.ui.common.LoadingIcon
 import com.wa2c.android.cifsdocumentsprovider.presentation.ui.common.Theme
 import com.wa2c.android.cifsdocumentsprovider.presentation.ui.common.getAppTopAppBarColors
 import com.wa2c.android.cifsdocumentsprovider.presentation.ui.common.showError
+import com.wa2c.android.cifsdocumentsprovider.presentation.ui.folder.components.NewFolderDialog
 
 /**
  * Folder Screen
@@ -64,6 +68,7 @@ fun FolderScreen(
     val fileList = viewModel.fileList.collectAsStateWithLifecycle()
     val currentUri = viewModel.currentUri.collectAsStateWithLifecycle()
     val isLoading = viewModel.isLoading.collectAsStateWithLifecycle()
+    var showNewFolderDialog by remember { mutableStateOf(false) }
 
     FolderScreenContainer(
         snackbarHostState = snackbarHostState,
@@ -75,7 +80,18 @@ fun FolderScreen(
         onClickItem = { viewModel.onSelectFolder(it) },
         onClickUp = { viewModel.onUpFolder() },
         onClickSet = { viewModel.currentUri.value.let { onNavigateSet(it) } },
+        onClickNewFolder = { showNewFolderDialog = true },
     )
+
+    if (showNewFolderDialog) {
+        NewFolderDialog(
+            onInput = {
+                viewModel.onCreateFolder(it)
+                showNewFolderDialog = false
+            },
+            onDismiss = { showNewFolderDialog = false },
+        )
+    }
 
     LaunchedEffect(Unit) {
         viewModel.result.collectIn(lifecycleOwner) {
@@ -102,6 +118,7 @@ fun FolderScreenContainer(
     onClickItem: (RemoteFile) -> Unit,
     onClickUp: () -> Unit,
     onClickSet: () -> Unit,
+    onClickNewFolder: () -> Unit,
 ) {
     Scaffold(
         topBar = {
@@ -109,6 +126,12 @@ fun FolderScreenContainer(
                 title = { Text(stringResource(id = R.string.folder_title)) },
                 colors = getAppTopAppBarColors(),
                 actions = {
+                    IconButton(onClick = onClickNewFolder, enabled = !isLoading) {
+                        Icon(
+                            imageVector = ImageVector.vectorResource(id = R.drawable.ic_add_folder),
+                            contentDescription = stringResource(id = R.string.folder_new_button),
+                        )
+                    }
                     LoadingIconButton(
                         contentDescription = stringResource(id = R.string.folder_reload_button),
                         isLoading = isLoading,
@@ -265,6 +288,7 @@ private fun FolderScreenContainerPreview() {
             onClickItem = {},
             onClickUp = {},
             onClickSet = {},
+            onClickNewFolder = {},
         )
     }
 }

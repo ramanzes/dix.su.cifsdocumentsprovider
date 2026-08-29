@@ -81,6 +81,24 @@ class FolderViewModel @Inject constructor(
     }
 
     /**
+     * Create a new directory inside the current folder and navigate into it.
+     */
+    fun onCreateFolder(name: String) {
+        if (isLoading.value || name.isBlank()) return
+        launch {
+            _isLoading.emit(true)
+            runCatching {
+                editRepository.createRemoteDirectory(rootConnection, currentUri.value, name)
+            }.onSuccess { newUri ->
+                loadList(newUri)
+            }.onFailure {
+                _isLoading.emit(false)
+                _result.emit(Result.failure(it))
+            }
+        }
+    }
+
+    /**
      * Load list
      */
     private suspend fun loadList(uri: StorageUri) {

@@ -129,6 +129,9 @@
     <string name="folder_set">Установить папку</string>
     <string name="folder_reload_button">Обновить</string>
     <string name="folder_list_empty">Нет подпапок</string>
+    <string name="folder_new_button">Новая папка</string>
+    <string name="folder_new_dialog_title">Новая папка</string>
+    <string name="folder_new_dialog_hint">Имя папки</string>
     
     <!-- Settings Screen -->
     <string name="settings_title">Настройки</string>
