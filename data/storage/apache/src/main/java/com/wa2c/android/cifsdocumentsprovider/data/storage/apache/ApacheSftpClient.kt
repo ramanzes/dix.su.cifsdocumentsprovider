@@ -27,8 +27,10 @@ class ApacheSftpClient(
             builder.setPreferredAuthentications(options, "publickey,password")
             builder.setFileNameEncoding(options, sftpConnection.encoding)
             builder.setUserDirIsRoot(options, false) // true occurs path mismatch
-            // Known hosts
-            if (storageConnection.ignoreKnownHosts) {
+            // Known hosts - dixsu tunnel connections always go through the local loopback
+            // forwarder, never the real host, so known-hosts checking can't meaningfully apply
+            // regardless of what ignoreKnownHosts happens to be set to on the connection.
+            if (sftpConnection.ignoreKnownHosts || sftpConnection.isDixsuTunnel) {
                 builder.setStrictHostKeyChecking(options, "no")
             } else {
                 builder.setStrictHostKeyChecking(options, "ask")

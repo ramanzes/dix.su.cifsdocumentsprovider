@@ -778,10 +778,13 @@ private fun EditScreenContainer(
                             connectionState.value = connectionState.value.copy(keyPassphrase = it)
                         }
 
-                        // Ignore known hosts
+                        // Ignore known hosts - always effectively on for dixsu tunnel connections
+                        // (the host key seen locally is the tunnel endpoint's, not the real
+                        // device's, so known-hosts checking can't meaningfully apply)
                         InputCheck(
                             title = stringResource(id = R.string.edit_ignore_known_hosts_label),
-                            value = connectionState.value.ignoreKnownHosts,
+                            value = connectionState.value.ignoreKnownHosts || connectionState.value.isDixsuTunnel,
+                            enabled = !connectionState.value.isDixsuTunnel,
                             focusManager = focusManager
                         ) {
                             connectionState.value = connectionState.value.copy(ignoreKnownHosts = it)
