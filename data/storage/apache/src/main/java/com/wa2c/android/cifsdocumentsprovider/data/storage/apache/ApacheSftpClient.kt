@@ -1,5 +1,6 @@
 package com.wa2c.android.cifsdocumentsprovider.data.storage.apache
 
+import com.jcraft.jsch.ConfigRepository
 import com.wa2c.android.cifsdocumentsprovider.common.values.CONNECTION_TIMEOUT
 import com.wa2c.android.cifsdocumentsprovider.common.values.URI_START
 import com.wa2c.android.cifsdocumentsprovider.data.storage.interfaces.StorageConnection
@@ -24,6 +25,9 @@ class ApacheSftpClient(
         SftpFileSystemConfigBuilder.getInstance().also { builder ->
             builder.setConnectTimeout(options, Duration.ofMillis(CONNECTION_TIMEOUT.toLong()))
             builder.setSessionTimeout(options, Duration.ofMillis(CONNECTION_TIMEOUT.toLong()))
+            // JSch reads ServerAliveInterval (seconds) and ServerAliveCountMax from ConfigRepository
+            // to send keepalive packets — prevents NAT/tunnel from silently dropping idle connections.
+            builder.setConfigRepository(options, KeepAliveConfigRepository)
             builder.setPreferredAuthentications(options, "publickey,password")
             builder.setFileNameEncoding(options, sftpConnection.encoding)
             builder.setUserDirIsRoot(options, false) // true occurs path mismatch
@@ -79,4 +83,20 @@ class ApacheSftpClient(
         private val LOOPBACK_AUTHORITY_REGEX = Regex("""://127\.0\.0\.1:\d+""")
     }
 
+}
+
+private object KeepAliveConfigRepository : ConfigRepository {
+    override fun getConfig(host: String): ConfigRepository.Config = KeepAliveConfig
+
+    private object KeepAliveConfig : ConfigRepository.Config {
+        override fun getHostname(): String = ""
+        override fun getUser(): String? = null
+        override fun getPort(): Int = -1
+        override fun getValue(key: String): String? = when (key) {
+            "ServerAliveInterval" -> "60"
+            "ServerAliveCountMax" -> "3"
+            else -> null
+        }
+        override fun getValues(key: String): Array<String>? = null
+    }
 }
