@@ -25,8 +25,10 @@ class ApacheSftpClient(
         SftpFileSystemConfigBuilder.getInstance().also { builder ->
             builder.setConnectTimeout(options, Duration.ofMillis(CONNECTION_TIMEOUT.toLong()))
             builder.setSessionTimeout(options, Duration.ofMillis(CONNECTION_TIMEOUT.toLong()))
-            // JSch reads ServerAliveInterval (seconds) and ServerAliveCountMax from ConfigRepository
-            // to send keepalive packets — prevents NAT/tunnel from silently dropping idle connections.
+            // JSch sends a keepalive each time the socket read times out (the session timeout above)
+            // and disconnects after ServerAliveCountMax unanswered ones - keeps NAT/tunnel from
+            // silently dropping idle connections. ServerAliveInterval is not set: JSch takes it in
+            // milliseconds and VFS overrides the resulting socket timeout with the session timeout anyway.
             builder.setConfigRepository(options, KeepAliveConfigRepository)
             builder.setPreferredAuthentications(options, "publickey,password")
             builder.setFileNameEncoding(options, sftpConnection.encoding)
@@ -89,11 +91,11 @@ private object KeepAliveConfigRepository : ConfigRepository {
     override fun getConfig(host: String): ConfigRepository.Config = KeepAliveConfig
 
     private object KeepAliveConfig : ConfigRepository.Config {
-        override fun getHostname(): String = ""
+        // null / -1 = keep the host, user and port passed to getSession() (a non-null hostname replaces it)
+        override fun getHostname(): String? = null
         override fun getUser(): String? = null
         override fun getPort(): Int = -1
         override fun getValue(key: String): String? = when (key) {
-            "ServerAliveInterval" -> "60"
             "ServerAliveCountMax" -> "3"
             else -> null
         }
