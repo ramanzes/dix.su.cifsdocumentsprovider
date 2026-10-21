@@ -29,10 +29,12 @@ class SendRepository @Inject internal constructor(
     val sendDataList = _sendDataList.asStateFlow()
 
     suspend fun sendUri(sourceUriList: List<Uri>, targetUri: Uri) {
-        val inputList = sourceUriList.mapNotNull { uri ->
-            val (storageFile, mimeType) = documentFileManager.getStorageFileAndMimeType(uri) ?: return@mapNotNull null
-            val exists = documentFileManager.existsFile(targetUri, storageFile.name)
-            storageFile.toSendData(mimeType, targetUri, exists)
+        val inputList = withContext(dispatcher) {
+            sourceUriList.mapNotNull { uri ->
+                val (storageFile, mimeType) = documentFileManager.getStorageFileAndMimeType(uri) ?: return@mapNotNull null
+                val exists = documentFileManager.existsFile(targetUri, storageFile.name)
+                storageFile.toSendData(mimeType, targetUri, exists)
+            }
         }
         _sendDataList.emit(sendDataList.value + inputList)
     }
@@ -43,10 +45,12 @@ class SendRepository @Inject internal constructor(
      * user decision - there's no one watching to confirm an overwrite.
      */
     suspend fun sendUriSkippingExisting(sourceUriList: List<Uri>, targetUri: Uri) {
-        val inputList = sourceUriList.mapNotNull { uri ->
-            val (storageFile, mimeType) = documentFileManager.getStorageFileAndMimeType(uri) ?: return@mapNotNull null
-            if (documentFileManager.existsFile(targetUri, storageFile.name)) return@mapNotNull null
-            storageFile.toSendData(mimeType, targetUri, exists = false)
+        val inputList = withContext(dispatcher) {
+            sourceUriList.mapNotNull { uri ->
+                val (storageFile, mimeType) = documentFileManager.getStorageFileAndMimeType(uri) ?: return@mapNotNull null
+                if (documentFileManager.existsFile(targetUri, storageFile.name)) return@mapNotNull null
+                storageFile.toSendData(mimeType, targetUri, exists = false)
+            }
         }
         _sendDataList.emit(sendDataList.value + inputList)
     }
@@ -56,11 +60,13 @@ class SendRepository @Inject internal constructor(
      * subdirectory tree under [targetUri] and skipping files that already exist.
      */
     suspend fun sendFolderSkippingExisting(sourceFolderUri: Uri, targetUri: Uri) {
-        val pairs = documentFileManager.collectFilesRecursively(sourceFolderUri, targetUri)
-        val inputList = pairs.mapNotNull { (sourceUri, targetDirUri) ->
-            val (storageFile, mimeType) = documentFileManager.getStorageFileAndMimeType(sourceUri) ?: return@mapNotNull null
-            if (documentFileManager.existsFile(targetDirUri, storageFile.name)) return@mapNotNull null
-            storageFile.toSendData(mimeType, targetDirUri, exists = false)
+        val inputList = withContext(dispatcher) {
+            val pairs = documentFileManager.collectFilesRecursively(sourceFolderUri, targetUri)
+            pairs.mapNotNull { (sourceUri, targetDirUri) ->
+                val (storageFile, mimeType) = documentFileManager.getStorageFileAndMimeType(sourceUri) ?: return@mapNotNull null
+                if (documentFileManager.existsFile(targetDirUri, storageFile.name)) return@mapNotNull null
+                storageFile.toSendData(mimeType, targetDirUri, exists = false)
+            }
         }
         _sendDataList.emit(sendDataList.value + inputList)
     }

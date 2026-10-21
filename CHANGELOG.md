@@ -2,6 +2,11 @@
 
 Форк [wa2c/cifs-documents-provider](https://github.com/wa2c/cifs-documents-provider), базовая версия Ver.2.4.0(31).
 
+## [v2.4.0-dixsu.13] — 2026-10-21
+
+### Исправлено
+- **ANR при «Sync now» на медленных SFTP-хостах** (например, WD My Cloud со старым sshd через dixsu-туннель): приложение зависало, и Android показывал диалог «CIFS Documents Provider isn't responding». Причина: `SendRepository.sendUri`, `sendUriSkippingExisting` и `sendFolderSkippingExisting` выполняли блокирующие вызовы (`existsFile`, рекурсивный обход папки `collectFilesRecursively`) прямо на главном потоке. На быстрых хостах это занимало миллисекунды, а на медленных — секунды на каждый файл, и через 5 с срабатывал ANR. Теперь эти операции идут на IO-диспетчере.
+
 ## [v2.4.0-dixsu.12] — 2026-08-29
 
 ### Добавлено
