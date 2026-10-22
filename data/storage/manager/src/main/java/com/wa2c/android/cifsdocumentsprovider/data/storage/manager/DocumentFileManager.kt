@@ -48,12 +48,15 @@ class DocumentFileManager @Inject constructor(
 
     /**
      * Get output file URI
+     * @param mayExist False if the caller knows [outputName] is not in [outputUri] yet; the file is
+     * then created without looking it up.
      */
-    fun getPermittedFileUri(outputUri: Uri, outputName: String, mimeType: String): Uri? {
+    fun getPermittedFileUri(outputUri: Uri, outputName: String, mimeType: String, mayExist: Boolean = true): Uri? {
         return getDocumentFile(outputUri)?.let { df ->
             if (df.isDirectory) {
-                val file = df.findFile(outputName)
-                file?.uri ?: df.createFile(mimeType, outputName)?.uri
+                // One listing - findFile() costs an extra provider query per file in the folder.
+                val file = if (mayExist) queryChildren(df.uri)[outputName]?.uri else null
+                file ?: df.createFile(mimeType, outputName)?.uri
                 // NOTE : build URI may not have access permission
             } else {
                 df.uri
@@ -86,12 +89,18 @@ class DocumentFileManager @Inject constructor(
      * Recursively collects all files under [sourceFolderUri], creating mirror subdirectories
      * under [targetDirUri] as needed. Returns a flat list of (sourceFileUri, targetDirUri) pairs
      * ready to feed into send pipeline.
+     * [onFolder] is called on entering each folder with its path relative to [sourceFolderUri]
+     * and the number of files found so far.
      */
-    fun collectFilesRecursively(sourceFolderUri: Uri, targetDirUri: Uri): List<Pair<Uri, Uri>> {
+    fun collectFilesRecursively(
+        sourceFolderUri: Uri,
+        targetDirUri: Uri,
+        onFolder: (path: String, filesFound: Int) -> Unit = { _, _ -> },
+    ): List<Pair<Uri, Uri>> {
         val sourceDir = DocumentFile.fromTreeUri(context, sourceFolderUri) ?: return emptyList()
         if (!DocumentsContract.isTreeUri(targetDirUri)) return emptyList()
         val targetDocUri = DocumentsContract.buildDocumentUriUsingTree(targetDirUri, targetDirUri.documentIdInTree())
-        return collectRecursive(sourceDir, targetDocUri)
+        return mutableListOf<Pair<Uri, Uri>>().also { collectRecursive(sourceDir, targetDocUri, "", it, onFolder) }
     }
 
     /**
@@ -101,8 +110,14 @@ class DocumentFileManager @Inject constructor(
         return queryChildren(dirUri).filterValues { !it.isDirectory }.mapValues { it.value.size }
     }
 
-    private fun collectRecursive(sourceDir: DocumentFile, targetDirUri: Uri): List<Pair<Uri, Uri>> {
-        val result = mutableListOf<Pair<Uri, Uri>>()
+    private fun collectRecursive(
+        sourceDir: DocumentFile,
+        targetDirUri: Uri,
+        path: String,
+        result: MutableList<Pair<Uri, Uri>>,
+        onFolder: (path: String, filesFound: Int) -> Unit,
+    ) {
+        onFolder(path, result.size)
         // Listed lazily, once per directory - not one findFile() (a full listing) per subdirectory.
         var targetChildren: Map<String, ChildDocument>? = null
         for (child in sourceDir.listFiles()) {
@@ -114,11 +129,10 @@ class DocumentFileManager @Inject constructor(
                     val subTargetUri = children[name]?.takeIf { it.isDirectory }?.uri
                         ?: createDirectory(targetDirUri, name)
                         ?: continue
-                    result.addAll(collectRecursive(child, subTargetUri))
+                    collectRecursive(child, subTargetUri, if (path.isEmpty()) name else "$path/$name", result, onFolder)
                 }
             }
         }
-        return result
     }
 
     /**

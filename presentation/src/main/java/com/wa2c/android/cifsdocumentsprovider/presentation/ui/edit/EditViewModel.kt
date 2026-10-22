@@ -109,6 +109,13 @@ class EditViewModel @Inject constructor(
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(), null)
 
+    /** Check phase of "Sync now"; null when not checking */
+    val syncScanProgress = sendRepository.syncScanProgress
+
+    /** Number of files queued by the last "Sync now" */
+    private val _syncQueuedCount = MutableSharedFlow<Int>()
+    val syncQueuedCount = _syncQueuedCount.asSharedFlow()
+
     private val _keyCheckResult = MutableSharedFlow<Result<Unit>>()
     val keyCheckResult = _keyCheckResult.asSharedFlow()
 
@@ -192,6 +199,8 @@ class EditViewModel @Inject constructor(
                     ?: throw IllegalStateException("Invalid connection")
                 val targetUri = "content$URI_START$URI_AUTHORITY/tree/${Uri.encode(documentId.idText)}".toUri()
                 sendRepository.sendFolderSkippingExisting(folderUri, targetUri)
+            }.onSuccess {
+                _syncQueuedCount.emit(it)
             }.onFailure {
                 _connectionResult.emit(ConnectionResult.Failure(cause = it))
             }

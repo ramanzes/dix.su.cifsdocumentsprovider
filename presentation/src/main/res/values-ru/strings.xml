@@ -83,7 +83,7 @@
     <string name="edit_option_thumbnail_disabled">Отключено</string>
 
     <string name="edit_backup_section_title">Бэкап</string>
-    <string name="edit_backup_hint">Загружает новые файлы (по имени) из локальной папки в корень этого соединения. «Sync now» — по нажатию, пока этот экран открыт; «Auto backup» ниже — периодически в фоне.</string>
+    <string name="edit_backup_hint">Загружает новые файлы (сверка по имени и размеру) из локальной папки в корень этого соединения. «Синхронизировать сейчас» — по нажатию; «Автобэкап» ниже — периодически в фоне.</string>
     <string name="edit_backup_select_folder">Выбрать папку для бэкапа</string>
     <string name="edit_backup_change_folder">Сменить папку</string>
     <string name="edit_backup_remove_folder">Убрать</string>
@@ -176,7 +176,7 @@
     <string name="send_action_cancel">Отмена</string>
     <string name="send_action_retry">Повтор</string>
     <string name="send_action_remove">Удалить</string>
-    <string name="send_state_ready">Готово</string>
+    <string name="send_state_ready">В очереди</string>
     <string name="send_state_overwrite">Файл существует</string>
     <string name="send_state_success">Успешно</string>
     <string name="send_state_failure">Не удалось</string>
@@ -200,4 +200,29 @@
     <string name="enum_theme_default">Как в системе</string>
     <string name="enum_theme_light">Светлая</string>
     <string name="enum_theme_dark">Тёмная</string>
+    <!-- Sync progress (dixsu) -->
+    <string name="sync_scan_stage_collect">Шаг 1 из 2: обход папок</string>
+    <string name="sync_scan_stage_check">Шаг 2 из 2: сверка с сервером</string>
+    <string name="sync_scan_collect_counts">Папок: %1$d · найдено файлов: %2$d</string>
+    <string name="sync_scan_check_counts">Проверено %1$d из %2$d · новых: %3$d</string>
+    <string name="sync_scan_folder">Папка: %1$s</string>
+    <string name="sync_scan_root_folder">/ (корень)</string>
+    <string name="sync_scan_elapsed">Прошло: %1$s</string>
+    <string name="sync_scan_alive">Последнее продвижение %1$d с назад</string>
+    <string name="sync_scan_stalled">Нет продвижения %1$d с — ждём ответа сервера. Медленный хост может отвечать долго; если это длится минуты — проверьте связь.</string>
+    <string name="sync_scan_upload_next">Загрузка начнётся после проверки.</string>
+    <string name="sync_nothing_new">Все файлы уже на сервере — загружать нечего.</string>
+    <string name="send_summary">Загружено %1$d из %2$d · ошибок %3$d · отменено %4$d</string>
+    <string name="send_summary_bytes">%1$s из %2$s</string>
+    <string name="send_current">Сейчас: %1$s</string>
+    <string name="send_preparing">Подготовка следующего файла…</string>
+    <string name="send_alive">Последние данные %1$d с назад</string>
+    <string name="send_stalled">Данные не передаются %1$d с — ждём сервер…</string>
+    <string name="send_finished">Все передачи завершены</string>
+    <string name="send_stopped">Передача остановлена — запустите синхронизацию снова, чтобы догрузить остальное</string>
+    <string name="send_background_hint">С этого экрана можно уйти кнопкой «Продолжить в фоне» — загрузка продолжится, прогресс виден в уведомлении.</string>
+    <string name="send_action_background">Продолжить в фоне</string>
+    <string name="send_action_cancel_all">Отменить всё</string>
+    <string name="send_action_done">Готово</string>
+    <string name="send_exit_running_message">Передача ещё идёт. Продолжить её в фоне или отменить всё?</string>
 </resources>

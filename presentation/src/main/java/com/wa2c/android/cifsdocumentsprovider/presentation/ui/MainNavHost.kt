@@ -187,9 +187,12 @@ internal fun MainNavHost(
             route = SendScreenName,
         ) {
             SendScreen(
-                onNavigateFinish = {
-                    onCloseApp()
-                }
+                onNavigateDone = {
+                    // Back to the screen the transfer started from; a share intent has nothing to go back to
+                    if (navController.previousBackStackEntry?.destination?.route == ReceiveFileName || !navController.popBackStack()) {
+                        onCloseApp()
+                    }
+                },
             )
         }
 

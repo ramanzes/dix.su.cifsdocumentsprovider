@@ -2,6 +2,7 @@ package com.wa2c.android.cifsdocumentsprovider.presentation.ui.send
 
 import android.content.res.Configuration
 import android.net.Uri
+import android.text.format.Formatter
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
@@ -21,13 +23,18 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -50,18 +57,27 @@ import com.wa2c.android.cifsdocumentsprovider.presentation.ui.common.DividerNorm
 import com.wa2c.android.cifsdocumentsprovider.presentation.ui.common.DividerThin
 import com.wa2c.android.cifsdocumentsprovider.presentation.ui.common.Theme
 import com.wa2c.android.cifsdocumentsprovider.presentation.ui.common.getAppTopAppBarColors
+import com.wa2c.android.cifsdocumentsprovider.presentation.ui.common.rememberNow
+import com.wa2c.android.cifsdocumentsprovider.presentation.ui.edit.STALLED_SECONDS
 
 @Composable
 fun SendScreen(
     viewModel: SendViewModel = hiltViewModel(viewModelStoreOwner = LocalContext.current as ComponentActivity),
     lifecycleOwner: LifecycleOwner = LocalLifecycleOwner.current,
-    onNavigateFinish: () -> Unit,
+    onNavigateDone: () -> Unit,
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
+    val activity = LocalContext.current as ComponentActivity
 
     val sendDataList = viewModel.sendDataList.collectAsStateWithLifecycle().value
     val showCloseDialog = remember { mutableStateOf(false) }
     val confirmCount = sendDataList.count { it.state == SendDataState.CONFIRM }
+    val isRunning = sendDataList.any { it.state.isCancelable }
+
+    val onClickDone = {
+        viewModel.onClickDone()
+        onNavigateDone()
+    }
 
     SendScreenContainer(
         snackbarHostState = snackbarHostState,
@@ -70,7 +86,12 @@ fun SendScreen(
         onClickRetry = { viewModel.onClickRetry(it) },
         onClickRemove = { viewModel.onClickRemove(it) },
         onClickCancelAll = { viewModel.onClickCancelAll() },
-        onClickClose = { showCloseDialog.value = true },
+        onClickBackground = { activity.moveTaskToBack(true) },
+        onClickDone = onClickDone,
+        onClickClose = {
+            // Nothing left to cancel: leaving is just "Done", no need to ask
+            if (isRunning) showCloseDialog.value = true else onClickDone()
+        },
     )
 
     // Overwrite confirmation
@@ -92,22 +113,24 @@ fun SendScreen(
         }
     }
 
-    // Exit confirmation
+    // Exit confirmation: back / close while transfers are running
     if (showCloseDialog.value) {
         CommonDialog(
             confirmButtons = listOf(
-                DialogButton(label = stringResource(id = R.string.general_accept)) {
-                    onNavigateFinish()
+                DialogButton(label = stringResource(id = R.string.send_action_background)) {
+                    showCloseDialog.value = false
+                    activity.moveTaskToBack(true)
                 },
             ),
-            dismissButton = DialogButton(label = stringResource(id = R.string.general_close)) {
+            dismissButton = DialogButton(label = stringResource(id = R.string.send_action_cancel_all)) {
                 showCloseDialog.value = false
+                viewModel.onClickCancelAll()
             },
             onDismiss = {
                 showCloseDialog.value = false
             }
         ) {
-            Text(stringResource(id = R.string.send_exit_confirmation_message))
+            Text(stringResource(id = R.string.send_exit_running_message))
         }
     }
 }
@@ -124,8 +147,19 @@ fun SendScreenContainer(
     onClickRetry: (SendData) -> Unit,
     onClickRemove: (SendData) -> Unit,
     onClickCancelAll: () -> Unit,
+    onClickBackground: () -> Unit,
+    onClickDone: () -> Unit,
     onClickClose: () -> Unit,
 ) {
+    val isRunning = sendDataList.any { it.state.isCancelable }
+    val currentIndex = sendDataList.indexOfFirst { it.state.inProgress }
+    val listState = rememberLazyListState()
+
+    // Keep the file being sent in view
+    LaunchedEffect(currentIndex) {
+        if (currentIndex >= 0) listState.animateScrollToItem(currentIndex)
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -150,10 +184,14 @@ fun SendScreenContainer(
                 .fillMaxHeight()
                 .padding(paddingValues)
         ) {
+            SendSummary(sendDataList = sendDataList, isRunning = isRunning)
+
+            DividerNormal()
+
             Box(
                 modifier = Modifier.weight(weight = 1f, fill = true)
             ) {
-                LazyColumn {
+                LazyColumn(state = listState) {
                     items(items = sendDataList) { sendData ->
                         SendDataItem(
                             sendData = sendData,
@@ -172,15 +210,39 @@ fun SendScreenContainer(
                 modifier = Modifier
                     .padding(Theme.Sizes.S),
             ) {
-                Button(
-                    onClick = onClickCancelAll,
-                    shape = RoundedCornerShape(Theme.Sizes.SS),
-                    enabled = sendDataList.any { it.state.isCancelable },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = Theme.Sizes.S)
-                ) {
-                    Text(text = stringResource(id = R.string.send_action_cancel))
+                if (isRunning) {
+                    Text(
+                        text = stringResource(id = R.string.send_background_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    Button(
+                        onClick = onClickBackground,
+                        shape = RoundedCornerShape(Theme.Sizes.SS),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = Theme.Sizes.S)
+                    ) {
+                        Text(text = stringResource(id = R.string.send_action_background))
+                    }
+                    OutlinedButton(
+                        onClick = onClickCancelAll,
+                        shape = RoundedCornerShape(Theme.Sizes.SS),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = Theme.Sizes.S)
+                    ) {
+                        Text(text = stringResource(id = R.string.send_action_cancel_all))
+                    }
+                } else {
+                    Button(
+                        onClick = onClickDone,
+                        shape = RoundedCornerShape(Theme.Sizes.SS),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = Theme.Sizes.S)
+                    ) {
+                        Text(text = stringResource(id = R.string.send_action_done))
+                    }
                 }
             }
         }
@@ -188,6 +250,88 @@ fun SendScreenContainer(
 
     // Back button
     BackHandler { onClickClose() }
+}
+
+/**
+ * Totals over the whole queue, the file being sent and how long ago data last moved - tells a
+ * slow transfer from a hung one.
+ */
+@Composable
+private fun SendSummary(
+    sendDataList: List<SendData>,
+    isRunning: Boolean,
+) {
+    val context = LocalContext.current
+    val succeeded = sendDataList.count { it.state == SendDataState.SUCCESS }
+    val failed = sendDataList.count { it.state == SendDataState.FAILURE }
+    val cancelled = sendDataList.count { it.state == SendDataState.CANCEL }
+    val totalBytes = sendDataList.sumOf { it.size }
+    val sentBytes = sendDataList.sumOf {
+        when {
+            it.state == SendDataState.SUCCESS -> it.size
+            it.state.inProgress -> it.progressSize
+            else -> 0L
+        }
+    }
+    val current = sendDataList.firstOrNull { it.state.inProgress }
+
+    // Anything moving - bytes or a finished file - counts as progress
+    val now = rememberNow()
+    var lastChange by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(sentBytes, succeeded + failed + cancelled) {
+        lastChange = System.currentTimeMillis()
+    }
+    val sinceChange = ((now - lastChange) / 1000).coerceAtLeast(0)
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = Theme.Sizes.M, vertical = Theme.Sizes.S)
+    ) {
+        if (!isRunning) {
+            Text(
+                text = stringResource(id = if (failed + cancelled > 0) R.string.send_stopped else R.string.send_finished),
+                style = MaterialTheme.typography.titleMedium,
+            )
+        }
+        Text(
+            text = stringResource(id = R.string.send_summary, succeeded, sendDataList.size, failed, cancelled),
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        Text(
+            text = stringResource(
+                id = R.string.send_summary_bytes,
+                Formatter.formatShortFileSize(context, sentBytes),
+                Formatter.formatShortFileSize(context, totalBytes),
+            ),
+            style = MaterialTheme.typography.bodySmall,
+        )
+        if (isRunning) {
+            LinearProgressIndicator(
+                progress = { if (totalBytes > 0) sentBytes.toFloat() / totalBytes else 0f },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = Theme.Sizes.SS),
+            )
+            Text(
+                text = current?.let { stringResource(id = R.string.send_current, it.name) }
+                    ?: stringResource(id = R.string.send_preparing),
+                style = MaterialTheme.typography.bodySmall,
+            )
+            if (sinceChange >= STALLED_SECONDS) {
+                Text(
+                    text = stringResource(id = R.string.send_stalled, sinceChange),
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            } else {
+                Text(
+                    text = stringResource(id = R.string.send_alive, sinceChange),
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+        }
+    }
 }
 
 @Composable
@@ -310,6 +454,8 @@ private fun SendScreenPreview() {
             onClickRetry = {},
             onClickRemove = {},
             onClickCancelAll = {},
+            onClickBackground = {},
+            onClickDone = {},
             onClickClose = {},
         )
     }

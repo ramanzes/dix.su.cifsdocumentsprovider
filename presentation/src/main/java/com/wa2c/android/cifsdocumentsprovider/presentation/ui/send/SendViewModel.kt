@@ -53,6 +53,16 @@ class SendViewModel @Inject constructor(
     }
 
     /**
+     * Close the finished queue
+     */
+    fun onClickDone() {
+        logD("onClickDone")
+        launch {
+            sendRepository.clear()
+        }
+    }
+
+    /**
      * Cancel all
      */
     fun onClickCancelAll() {

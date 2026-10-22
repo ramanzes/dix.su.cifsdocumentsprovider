@@ -81,6 +81,7 @@ import com.wa2c.android.cifsdocumentsprovider.common.values.URI_START
 import com.wa2c.android.cifsdocumentsprovider.domain.model.ConnectionResult
 import com.wa2c.android.cifsdocumentsprovider.domain.model.DocumentId
 import com.wa2c.android.cifsdocumentsprovider.domain.model.RemoteConnection
+import com.wa2c.android.cifsdocumentsprovider.domain.model.SyncScanProgress
 import com.wa2c.android.cifsdocumentsprovider.domain.model.StorageUri
 import com.wa2c.android.cifsdocumentsprovider.presentation.R
 import com.wa2c.android.cifsdocumentsprovider.presentation.ext.KeyInputType
@@ -153,6 +154,7 @@ fun EditScreen(
         snackbarHostState = snackbarHostState,
         isNew = viewModel.isNew,
         isBusy = viewModel.isBusy.collectAsStateWithLifecycle().value,
+        syncScanProgress = viewModel.syncScanProgress.collectAsStateWithLifecycle().value,
         connectionState = viewModel.remoteConnection.collectAsMutableState(),
         connectionResult = viewModel.connectionResult.collectAsStateWithLifecycle().value,
         dixsuProxyPort = viewModel.dixsuProxyPort.collectAsStateWithLifecycle().value,
@@ -324,6 +326,12 @@ fun EditScreen(
             }
         }
 
+        viewModel.syncQueuedCount.collectIn(lifecycleOwner) { count ->
+            if (count == 0) {
+                scope.showPopup(snackbarHostState, R.string.sync_nothing_new, PopupMessageType.Success)
+            }
+        }
+
         viewModel.keyCheckResult.collectIn(lifecycleOwner) { result ->
             if (result.isSuccess) {
                 if (!viewModel.remoteConnection.value.keyData.isNullOrEmpty()) {
@@ -362,6 +370,7 @@ private fun EditScreenContainer(
     snackbarHostState: SnackbarHostState,
     isNew: Boolean,
     isBusy: Boolean,
+    syncScanProgress: SyncScanProgress? = null,
     connectionState: MutableState<RemoteConnection>,
     connectionResult: ConnectionResult?,
     dixsuProxyPort: Int?,
@@ -974,7 +983,11 @@ private fun EditScreenContainer(
                 )
             }
 
-            LoadingBox(isLoading = isBusy)
+            if (syncScanProgress != null) {
+                SyncScanBox(progress = syncScanProgress)
+            } else {
+                LoadingBox(isLoading = isBusy)
+            }
         }
     }
 

@@ -83,7 +83,7 @@
     <string name="edit_option_thumbnail_disabled">Disabled</string>
 
     <string name="edit_backup_section_title">Backup</string>
-    <string name="edit_backup_hint">Upload new files (by name) from a local folder into this connection\'s root. \"Sync now\" runs on demand while this screen is open; \"Auto backup\" below runs it periodically in the background.</string>
+    <string name="edit_backup_hint">Upload new files (compared by name and size) from a local folder into this connection\'s root. \"Sync now\" runs on demand while this screen is open; \"Auto backup\" below runs it periodically in the background.</string>
     <string name="edit_backup_select_folder">Select folder to back up</string>
     <string name="edit_backup_change_folder">Change folder</string>
     <string name="edit_backup_remove_folder">Remove</string>
@@ -200,4 +200,29 @@
     <string name="enum_theme_default">Default</string>
     <string name="enum_theme_light">Light</string>
     <string name="enum_theme_dark">Dark</string>
+    <!-- Sync progress (dixsu) -->
+    <string name="sync_scan_stage_collect">Step 1 of 2: scanning folders</string>
+    <string name="sync_scan_stage_check">Step 2 of 2: comparing with the server</string>
+    <string name="sync_scan_collect_counts">Folders: %1$d · files found: %2$d</string>
+    <string name="sync_scan_check_counts">Checked %1$d of %2$d · new: %3$d</string>
+    <string name="sync_scan_folder">Folder: %1$s</string>
+    <string name="sync_scan_root_folder">/ (root)</string>
+    <string name="sync_scan_elapsed">Elapsed: %1$s</string>
+    <string name="sync_scan_alive">Last progress %1$d s ago</string>
+    <string name="sync_scan_stalled">No progress for %1$d s - waiting for the server. A slow host can take a while; if this lasts for minutes, check the connection.</string>
+    <string name="sync_scan_upload_next">Uploading starts after the check.</string>
+    <string name="sync_nothing_new">All files are already on the server - nothing to upload.</string>
+    <string name="send_summary">Uploaded %1$d of %2$d · failed %3$d · cancelled %4$d</string>
+    <string name="send_summary_bytes">%1$s of %2$s</string>
+    <string name="send_current">Now: %1$s</string>
+    <string name="send_preparing">Preparing the next file…</string>
+    <string name="send_alive">Last data %1$d s ago</string>
+    <string name="send_stalled">No data for %1$d s - waiting for the server…</string>
+    <string name="send_finished">All transfers finished</string>
+    <string name="send_stopped">Transfer stopped - run the sync again to upload the rest</string>
+    <string name="send_background_hint">You can leave this screen with "Continue in background" - the upload goes on, progress is in the notification.</string>
+    <string name="send_action_background">Continue in background</string>
+    <string name="send_action_cancel_all">Cancel all</string>
+    <string name="send_action_done">Done</string>
+    <string name="send_exit_running_message">Transfers are still running. Continue them in the background, or cancel all?</string>
 </resources>

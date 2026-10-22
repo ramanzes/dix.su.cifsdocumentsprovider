@@ -1,6 +1,7 @@
 package com.wa2c.android.cifsdocumentsprovider.domain.repository
 
 import android.net.Uri
+import android.provider.DocumentsContract
 import com.wa2c.android.cifsdocumentsprovider.common.utils.logD
 import com.wa2c.android.cifsdocumentsprovider.common.utils.logE
 import com.wa2c.android.cifsdocumentsprovider.data.storage.manager.DocumentFileManager
@@ -8,6 +9,7 @@ import com.wa2c.android.cifsdocumentsprovider.domain.IoDispatcher
 import com.wa2c.android.cifsdocumentsprovider.domain.mapper.DomainMapper.toSendData
 import com.wa2c.android.cifsdocumentsprovider.domain.model.SendData
 import com.wa2c.android.cifsdocumentsprovider.domain.model.SendDataState
+import com.wa2c.android.cifsdocumentsprovider.domain.model.SyncScanProgress
 import com.wa2c.android.cifsdocumentsprovider.domain.model.getCurrentReady
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,6 +29,10 @@ class SendRepository @Inject internal constructor(
 
     private val _sendDataList = MutableStateFlow<List<SendData>>(emptyList())
     val sendDataList = _sendDataList.asStateFlow()
+
+    private val _syncScanProgress = MutableStateFlow<SyncScanProgress?>(null)
+    /** Check phase of [sendFolderSkippingExisting]; null when no check is running. */
+    val syncScanProgress = _syncScanProgress.asStateFlow()
 
     suspend fun sendUri(sourceUriList: List<Uri>, targetUri: Uri) {
         val inputList = withContext(dispatcher) {
@@ -58,23 +64,51 @@ class SendRepository @Inject internal constructor(
     /**
      * Like [sendUriSkippingExisting], but walks [sourceFolderUri] recursively, mirroring the
      * subdirectory tree under [targetUri] and skipping files already there with the same size.
+     * Reports its progress in [syncScanProgress].
+     * @return Number of files queued
      */
-    suspend fun sendFolderSkippingExisting(sourceFolderUri: Uri, targetUri: Uri) {
+    suspend fun sendFolderSkippingExisting(sourceFolderUri: Uri, targetUri: Uri): Int {
         val inputList = withContext(dispatcher) {
-            val pairs = documentFileManager.collectFilesRecursively(sourceFolderUri, targetUri)
-            // One listing per target directory instead of one existsFile() (itself a full listing) per file.
-            val existingByDir = mutableMapOf<Uri, Map<String, Long>>()
-            pairs.mapNotNull { (sourceUri, targetDirUri) ->
-                val (storageFile, mimeType) = documentFileManager.getStorageFileAndMimeType(sourceUri) ?: return@mapNotNull null
-                val existing = existingByDir.getOrPut(targetDirUri) {
-                    documentFileManager.listFileSizes(targetDirUri)
+            try {
+                var progress = SyncScanProgress(stage = SyncScanProgress.Stage.COLLECT)
+                fun report(update: SyncScanProgress) {
+                    progress = update.copy(updateTime = System.currentTimeMillis())
+                    _syncScanProgress.value = progress
                 }
-                // Skip only a complete copy - a size mismatch means an interrupted upload (or a changed file), send it again.
-                if (existing[storageFile.name] == storageFile.size) return@mapNotNull null
-                storageFile.toSendData(mimeType, targetDirUri, exists = false)
+                report(progress)
+
+                val pairs = documentFileManager.collectFilesRecursively(sourceFolderUri, targetUri) { path, filesFound ->
+                    report(progress.copy(folders = progress.folders + 1, files = filesFound, currentFolder = path))
+                }
+                report(progress.copy(stage = SyncScanProgress.Stage.CHECK, files = 0, total = pairs.size, currentFolder = ""))
+
+                // One listing per target directory instead of one existsFile() (itself a full listing) per file.
+                val existingByDir = mutableMapOf<Uri, Map<String, Long>>()
+                pairs.mapNotNull { (sourceUri, targetDirUri) ->
+                    val existing = existingByDir.getOrPut(targetDirUri) {
+                        report(progress.copy(currentFolder = targetDirUri.folderPath()))
+                        documentFileManager.listFileSizes(targetDirUri)
+                    }
+                    val sendData = documentFileManager.getStorageFileAndMimeType(sourceUri)?.let { (storageFile, mimeType) ->
+                        // Skip only a complete copy - a size mismatch means an interrupted upload (or a changed file), send it again.
+                        if (existing[storageFile.name] == storageFile.size) null
+                        else storageFile.toSendData(mimeType, targetDirUri, exists = false)
+                            .copy(targetMayExist = existing.containsKey(storageFile.name))
+                    }
+                    report(progress.copy(files = progress.files + 1, newFiles = progress.newFiles + if (sendData != null) 1 else 0))
+                    sendData
+                }
+            } finally {
+                _syncScanProgress.value = null
             }
         }
         _sendDataList.emit(sendDataList.value + inputList)
+        return inputList.size
+    }
+
+    /** Folder path of a target document URI, relative to the connection root. */
+    private fun Uri.folderPath(): String {
+        return runCatching { DocumentsContract.getDocumentId(this).substringAfter(':') }.getOrDefault("")
     }
 
     suspend fun start(toReadyConfirm: Boolean) {
@@ -165,7 +199,7 @@ class SendRepository @Inject internal constructor(
     private suspend fun send(sendData: SendData, callback: suspend (sendParam: SendData) -> Boolean) {
         withContext(dispatcher) {
             // Get permitted output file URI
-            val targetFileUri = documentFileManager.getPermittedFileUri(sendData.targetFileUri, sendData.name, sendData.mimeType) ?: let {
+            val targetFileUri = documentFileManager.getPermittedFileUri(sendData.targetFileUri, sendData.name, sendData.mimeType, sendData.targetMayExist) ?: let {
                 callback(sendData.copy(state = SendDataState.FAILURE))
                 return@withContext
             }

@@ -24,6 +24,8 @@ data class SendData(
     val progressSize: Long = 0,
     /** True if success */
     val state: SendDataState = SendDataState.READY,
+    /** False if the target folder had no file of this name when queued: it is created without looking it up first. */
+    val targetMayExist: Boolean = true,
 ) {
     /** Progress percentage */
     val progress: Int
