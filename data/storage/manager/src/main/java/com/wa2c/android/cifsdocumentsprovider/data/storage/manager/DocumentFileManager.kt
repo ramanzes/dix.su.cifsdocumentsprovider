@@ -89,29 +89,94 @@ class DocumentFileManager @Inject constructor(
      */
     fun collectFilesRecursively(sourceFolderUri: Uri, targetDirUri: Uri): List<Pair<Uri, Uri>> {
         val sourceDir = DocumentFile.fromTreeUri(context, sourceFolderUri) ?: return emptyList()
-        val targetDir = if (DocumentsContract.isTreeUri(targetDirUri))
-            DocumentFile.fromTreeUri(context, targetDirUri)
-        else
-            DocumentFile.fromSingleUri(context, targetDirUri)
-        return collectRecursive(sourceDir, targetDir ?: return emptyList())
+        if (!DocumentsContract.isTreeUri(targetDirUri)) return emptyList()
+        val targetDocUri = DocumentsContract.buildDocumentUriUsingTree(targetDirUri, targetDirUri.documentIdInTree())
+        return collectRecursive(sourceDir, targetDocUri)
     }
 
-    private fun collectRecursive(sourceDir: DocumentFile, targetDir: DocumentFile): List<Pair<Uri, Uri>> {
+    /**
+     * Name to size of the files directly under [dirUri].
+     */
+    fun listFileSizes(dirUri: Uri): Map<String, Long> {
+        return queryChildren(dirUri).filterValues { !it.isDirectory }.mapValues { it.value.size }
+    }
+
+    private fun collectRecursive(sourceDir: DocumentFile, targetDirUri: Uri): List<Pair<Uri, Uri>> {
         val result = mutableListOf<Pair<Uri, Uri>>()
+        // Listed lazily, once per directory - not one findFile() (a full listing) per subdirectory.
+        var targetChildren: Map<String, ChildDocument>? = null
         for (child in sourceDir.listFiles()) {
             when {
-                child.isFile -> result.add(child.uri to targetDir.uri)
+                child.isFile -> result.add(child.uri to targetDirUri)
                 child.isDirectory -> {
                     val name = child.name ?: continue
-                    val subTarget = targetDir.findFile(name)?.takeIf { it.isDirectory }
-                        ?: targetDir.createDirectory(name)
+                    val children = targetChildren ?: queryChildren(targetDirUri).also { targetChildren = it }
+                    val subTargetUri = children[name]?.takeIf { it.isDirectory }?.uri
+                        ?: createDirectory(targetDirUri, name)
                         ?: continue
-                    result.addAll(collectRecursive(child, subTarget))
+                    result.addAll(collectRecursive(child, subTargetUri))
                 }
             }
         }
         return result
     }
+
+    /**
+     * Lists the children of tree document [dirUri] with a single queryChildDocuments call.
+     * Going through DocumentFile.listFiles() instead costs an extra query per child for
+     * every name / type / length read.
+     */
+    private fun queryChildren(dirUri: Uri): Map<String, ChildDocument> {
+        if (!DocumentsContract.isTreeUri(dirUri)) return emptyMap()
+        val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(dirUri, dirUri.documentIdInTree())
+        val projection = arrayOf(
+            DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+            DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+            DocumentsContract.Document.COLUMN_MIME_TYPE,
+            DocumentsContract.Document.COLUMN_SIZE,
+        )
+        return try {
+            context.contentResolver.query(childrenUri, projection, null, null, null)?.use { cursor ->
+                buildMap {
+                    while (cursor.moveToNext()) {
+                        val documentId = cursor.getString(0) ?: continue
+                        val name = cursor.getString(1) ?: continue
+                        put(name, ChildDocument(
+                            uri = DocumentsContract.buildDocumentUriUsingTree(dirUri, documentId),
+                            isDirectory = cursor.getString(2) == DocumentsContract.Document.MIME_TYPE_DIR,
+                            size = if (cursor.isNull(3)) 0 else cursor.getLong(3),
+                        ))
+                    }
+                }
+            } ?: emptyMap()
+        } catch (e: Exception) {
+            logE(e)
+            emptyMap()
+        }
+    }
+
+    private fun createDirectory(parentUri: Uri, name: String): Uri? {
+        return try {
+            DocumentsContract.createDocument(context.contentResolver, parentUri, DocumentsContract.Document.MIME_TYPE_DIR, name)
+        } catch (e: Exception) {
+            logE(e)
+            null
+        }
+    }
+
+    private fun Uri.documentIdInTree(): String {
+        return if (DocumentsContract.isDocumentUri(context, this)) {
+            DocumentsContract.getDocumentId(this)
+        } else {
+            DocumentsContract.getTreeDocumentId(this)
+        }
+    }
+
+    private data class ChildDocument(
+        val uri: Uri,
+        val isDirectory: Boolean,
+        val size: Long,
+    )
 
     fun deleteFile(targetUri: Uri): Boolean {
         return try {

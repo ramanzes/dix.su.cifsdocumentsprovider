@@ -57,14 +57,20 @@ class SendRepository @Inject internal constructor(
 
     /**
      * Like [sendUriSkippingExisting], but walks [sourceFolderUri] recursively, mirroring the
-     * subdirectory tree under [targetUri] and skipping files that already exist.
+     * subdirectory tree under [targetUri] and skipping files already there with the same size.
      */
     suspend fun sendFolderSkippingExisting(sourceFolderUri: Uri, targetUri: Uri) {
         val inputList = withContext(dispatcher) {
             val pairs = documentFileManager.collectFilesRecursively(sourceFolderUri, targetUri)
+            // One listing per target directory instead of one existsFile() (itself a full listing) per file.
+            val existingByDir = mutableMapOf<Uri, Map<String, Long>>()
             pairs.mapNotNull { (sourceUri, targetDirUri) ->
                 val (storageFile, mimeType) = documentFileManager.getStorageFileAndMimeType(sourceUri) ?: return@mapNotNull null
-                if (documentFileManager.existsFile(targetDirUri, storageFile.name)) return@mapNotNull null
+                val existing = existingByDir.getOrPut(targetDirUri) {
+                    documentFileManager.listFileSizes(targetDirUri)
+                }
+                // Skip only a complete copy - a size mismatch means an interrupted upload (or a changed file), send it again.
+                if (existing[storageFile.name] == storageFile.size) return@mapNotNull null
                 storageFile.toSendData(mimeType, targetDirUri, exists = false)
             }
         }

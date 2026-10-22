@@ -30,7 +30,18 @@ internal class ApacheProxyFileCallback(
 
     /** File size */
     private val fileSize: Long by lazy {
-        processFileIo(coroutineContext) { fileObject.content.size }
+        processFileIo(coroutineContext) { lockFileSystem { fileObject.content.size } }
+    }
+
+    /**
+     * Runs [block] holding the file system's monitor.
+     * VFS locks the file system before a file object everywhere except in SftpFileObject's own
+     * synchronized methods (e.g. statSelf() on output close), which take the file object first.
+     * Without the file system lock taken here first, closing a written file while another thread
+     * lists its parent directory deadlocks both threads.
+     */
+    private inline fun <T> lockFileSystem(block: () -> T): T {
+        return synchronized(fileObject.fileSystem) { block() }
     }
 
     private val fileAccessMode = when (accessMode) {
@@ -63,7 +74,7 @@ internal class ApacheProxyFileCallback(
         _reader?.let {
             launch {
                 // close in background
-                try { it.close() } catch (e: Exception) { logE(e) }
+                try { lockFileSystem { it.close() } } catch (e: Exception) { logE(e) }
                 logD("Reader released")
             }
         }
@@ -76,7 +87,7 @@ internal class ApacheProxyFileCallback(
        _writer?.let {
            launch {
                // close in background
-               try { it.close() } catch (e: Exception) { logE(e) }
+               try { lockFileSystem { it.close() } } catch (e: Exception) { logE(e) }
                logD("Writer released")
            }
        }
@@ -123,7 +134,7 @@ internal class ApacheProxyFileCallback(
     override fun onRead(offset: Long, size: Int, data: ByteArray): Int {
         return processFileIo(coroutineContext) {
             val maxSize = minOf(size.toLong(), fileSize - offset).toInt()
-            getReadAccess(offset).readFully(data, 0, maxSize)
+            lockFileSystem { getReadAccess(offset).readFully(data, 0, maxSize) }
             maxOf(0, maxSize)
         }
     }
@@ -132,7 +143,7 @@ internal class ApacheProxyFileCallback(
     override fun onWrite(offset: Long, size: Int, data: ByteArray): Int {
         return processFileIo(coroutineContext) {
             checkAccessMode(accessMode)
-            getWriteAccess(offset).write(data, 0, size)
+            lockFileSystem { getWriteAccess(offset).write(data, 0, size) }
             writePointer += size.toLong()
             size
         }
