@@ -195,6 +195,20 @@ class DocumentFileManager @Inject constructor(
         val size: Long,
     )
 
+    /**
+     * Size of document [uri] as its provider reports it, null if unknown.
+     */
+    fun getFileSize(uri: Uri): Long? {
+        return try {
+            context.contentResolver.query(uri, arrayOf(DocumentsContract.Document.COLUMN_SIZE), null, null, null)?.use { cursor ->
+                if (cursor.moveToFirst() && !cursor.isNull(0)) cursor.getLong(0) else null
+            }
+        } catch (e: Exception) {
+            logE(e)
+            null
+        }
+    }
+
     fun deleteFile(targetUri: Uri): Boolean {
         return try {
             DocumentsContract.deleteDocument(context.contentResolver, targetUri)

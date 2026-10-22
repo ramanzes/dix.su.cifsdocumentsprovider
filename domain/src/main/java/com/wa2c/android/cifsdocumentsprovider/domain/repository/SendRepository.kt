@@ -14,9 +14,11 @@ import com.wa2c.android.cifsdocumentsprovider.domain.model.SyncScanProgress
 import com.wa2c.android.cifsdocumentsprovider.domain.model.getCurrentReady
 import com.wa2c.android.cifsdocumentsprovider.domain.model.toSendFailure
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
+import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -225,6 +227,7 @@ class SendRepository @Inject internal constructor(
                     callback(currentSendData).let { if (!it) return@sendFile false }
                     return@sendFile true
                 }
+                if (isSuccess) awaitTargetSize(targetFileUri, currentSendData.progressSize)
 
                 currentSendData = currentSendData.copy(
                     state = when {
@@ -247,8 +250,29 @@ class SendRepository @Inject internal constructor(
     }
 
 
+    /**
+     * Waits until the provider reports [expectedSize] for [targetFileUri]: closing the written file
+     * finishes after the stream close returns (the provider releases it asynchronously), and only
+     * then is the whole file on the server. Unknown sizes are taken as complete.
+     */
+    private suspend fun awaitTargetSize(targetFileUri: Uri, expectedSize: Long) {
+        val deadline = System.currentTimeMillis() + VERIFY_TIMEOUT
+        var size: Long?
+        while (true) {
+            size = documentFileManager.getFileSize(targetFileUri)
+            logD("awaitTargetSize: $size / $expectedSize")
+            if (size == null || size == expectedSize || System.currentTimeMillis() >= deadline) break
+            delay(VERIFY_INTERVAL)
+        }
+        if (size != null && size != expectedSize) {
+            throw SendException.WriteTarget(IOException("Only $size of $expectedSize bytes reached the server."))
+        }
+    }
+
     companion object {
         private const val NOTIFY_CYCLE = 500
+        private const val VERIFY_INTERVAL = 500L
+        private const val VERIFY_TIMEOUT = 60_000L
     }
 
 }

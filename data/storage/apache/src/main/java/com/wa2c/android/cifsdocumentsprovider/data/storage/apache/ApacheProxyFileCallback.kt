@@ -84,13 +84,13 @@ internal class ApacheProxyFileCallback(
 
 
     private fun closeWriter() {
-       _writer?.let {
-           launch {
-               // close in background
-               try { lockFileSystem { it.close() } } catch (e: Exception) { logE(e) }
-               logD("Writer released")
-           }
-       }
+        _writer?.let {
+            // Not in background: the buffer (up to BUFFER_SIZE) only reaches the server on close,
+            // and onRelease closes the file object right after - a deferred close lost the tail
+            // of the file while the upload already counted as done.
+            try { lockFileSystem { it.close() } } catch (e: Exception) { logE(e) }
+            logD("Writer released")
+        }
         _writer = null
         writePointer = 0L
     }
