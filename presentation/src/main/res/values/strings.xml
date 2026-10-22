@@ -225,4 +225,14 @@
     <string name="send_action_cancel_all">Cancel all</string>
     <string name="send_action_done">Done</string>
     <string name="send_exit_running_message">Transfers are still running. Continue them in the background, or cancel all?</string>
+    <string name="sync_read_only">This connection is read-only (Option \"Read only\") - nothing can be uploaded. Uncheck it and save.</string>
+    <string name="send_failure_read_only">connection is read-only</string>
+    <string name="send_failure_permission">no write permission on the server</string>
+    <string name="send_failure_no_space">no space left on the server</string>
+    <string name="send_failure_auth">login to the server failed</string>
+    <string name="send_failure_network">connection to the server lost</string>
+    <string name="send_failure_read_source">cannot read the file on this device</string>
+    <string name="send_failure_create_target">cannot create the file on the server (no write permission or read-only connection?)</string>
+    <string name="send_failure_write_target">cannot write the file on the server</string>
+    <string name="send_failure_other">unknown error</string>
 </resources>

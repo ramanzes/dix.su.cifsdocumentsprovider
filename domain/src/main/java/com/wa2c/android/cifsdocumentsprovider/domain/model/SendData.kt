@@ -26,6 +26,8 @@ data class SendData(
     val state: SendDataState = SendDataState.READY,
     /** False if the target folder had no file of this name when queued: it is created without looking it up first. */
     val targetMayExist: Boolean = true,
+    /** Why the transfer failed, if it did */
+    val failure: SendFailure? = null,
 ) {
     /** Progress percentage */
     val progress: Int

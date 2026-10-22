@@ -38,6 +38,10 @@ class BackupSyncWorker(
         if (connection == null || !connection.autoBackupEnabled || folderUri == null) {
             return Result.success()
         }
+        if (connection.optionReadOnly) {
+            logD("BackupSyncWorker skipped: connection is read-only")
+            return Result.success()
+        }
 
         val sendRepository = provideSendRepository(context)
         runCatching {

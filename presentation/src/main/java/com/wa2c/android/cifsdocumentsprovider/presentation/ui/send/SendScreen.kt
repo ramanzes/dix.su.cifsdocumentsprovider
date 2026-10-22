@@ -37,10 +37,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.LifecycleOwner
@@ -358,7 +360,17 @@ private fun SendDataItem(
         Text(
             text = sendData.getSummaryText(context = LocalContext.current),
             style = MaterialTheme.typography.bodyMedium,
+            color = if (sendData.state == SendDataState.FAILURE) MaterialTheme.colorScheme.error else Color.Unspecified,
         )
+        // Raw message from the system / server, for when the reason above is not enough
+        sendData.failure?.detail?.let { detail ->
+            Text(
+                text = detail,
+                style = MaterialTheme.typography.bodySmall,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
         LinearProgressIndicator(
             progress = { (sendData.progress.toFloat() / 100) },
             modifier = Modifier

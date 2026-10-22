@@ -5,12 +5,14 @@ import android.net.Uri
 import android.provider.DocumentsContract
 import androidx.core.net.toUri
 import androidx.documentfile.provider.DocumentFile
+import com.wa2c.android.cifsdocumentsprovider.common.exception.SendException
 import com.wa2c.android.cifsdocumentsprovider.common.utils.getFileName
 import com.wa2c.android.cifsdocumentsprovider.common.utils.logE
 import com.wa2c.android.cifsdocumentsprovider.common.values.BUFFER_SIZE
 import com.wa2c.android.cifsdocumentsprovider.data.storage.interfaces.StorageFile
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.FileNotFoundException
+import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -56,7 +58,8 @@ class DocumentFileManager @Inject constructor(
             if (df.isDirectory) {
                 // One listing - findFile() costs an extra provider query per file in the folder.
                 val file = if (mayExist) queryChildren(df.uri)[outputName]?.uri else null
-                file ?: df.createFile(mimeType, outputName)?.uri
+                // Not df.createFile(): it swallows the provider's exception, and with it the reason
+                file ?: DocumentsContract.createDocument(context.contentResolver, df.uri, mimeType, outputName)
                 // NOTE : build URI may not have access permission
             } else {
                 df.uri
@@ -213,13 +216,23 @@ class DocumentFileManager @Inject constructor(
     ): Boolean {
         val buffer = ByteArray(bufferSize)
         var progressSize = 0L
-        (context.contentResolver.openInputStream(sourceUri) ?: return false).use { input ->
-            (context.contentResolver.openOutputStream(targetUri)
-                ?: return false).use { output ->
+        // Each step throws its own SendException so the failure can tell what went wrong
+        val input = try {
+            context.contentResolver.openInputStream(sourceUri)
+        } catch (e: Exception) {
+            throw SendException.ReadSource(e)
+        } ?: throw SendException.ReadSource()
+        input.use {
+            val output = try {
+                context.contentResolver.openOutputStream(targetUri)
+            } catch (e: Exception) {
+                throw SendException.WriteTarget(e)
+            } ?: throw SendException.WriteTarget()
+            output.use {
                 while (true) {
-                    val length = input.read(buffer)
+                    val length = try { input.read(buffer) } catch (e: IOException) { throw SendException.ReadSource(e) }
                     if (length <= 0) break // End of Data
-                    output.write(buffer, 0, length)
+                    try { output.write(buffer, 0, length) } catch (e: IOException) { throw SendException.WriteTarget(e) }
                     progressSize += length
                     if (!updateProgress(progressSize)) return false
                 }

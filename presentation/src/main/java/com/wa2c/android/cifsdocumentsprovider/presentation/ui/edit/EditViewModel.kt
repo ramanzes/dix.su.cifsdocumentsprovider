@@ -116,6 +116,10 @@ class EditViewModel @Inject constructor(
     private val _syncQueuedCount = MutableSharedFlow<Int>()
     val syncQueuedCount = _syncQueuedCount.asSharedFlow()
 
+    /** "Sync now" refused to start because the connection is read-only */
+    private val _syncReadOnly = MutableSharedFlow<Unit>()
+    val syncReadOnly = _syncReadOnly.asSharedFlow()
+
     private val _keyCheckResult = MutableSharedFlow<Result<Unit>>()
     val keyCheckResult = _keyCheckResult.asSharedFlow()
 
@@ -190,6 +194,11 @@ class EditViewModel @Inject constructor(
      */
     fun onClickSyncNow() {
         launch {
+            // Every file would fail one by one on the server side
+            if (remoteConnection.value.optionReadOnly) {
+                _syncReadOnly.emit(Unit)
+                return@launch
+            }
             _isBusy.emit(true)
             runCatching {
                 val connection = remoteConnection.value

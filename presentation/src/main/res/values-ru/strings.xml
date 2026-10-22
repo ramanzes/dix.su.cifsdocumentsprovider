@@ -225,4 +225,14 @@
     <string name="send_action_cancel_all">Отменить всё</string>
     <string name="send_action_done">Готово</string>
     <string name="send_exit_running_message">Передача ещё идёт. Продолжить её в фоне или отменить всё?</string>
+    <string name="sync_read_only">Соединение в режиме «Только для чтения» — загрузить ничего нельзя. Снимите галочку в «Опциях» и сохраните.</string>
+    <string name="send_failure_read_only">соединение в режиме «Только для чтения»</string>
+    <string name="send_failure_permission">нет прав на запись на сервере</string>
+    <string name="send_failure_no_space">на сервере нет места</string>
+    <string name="send_failure_auth">не удалось войти на сервер</string>
+    <string name="send_failure_network">потеряна связь с сервером</string>
+    <string name="send_failure_read_source">не удаётся прочитать файл на этом устройстве</string>
+    <string name="send_failure_create_target">не удаётся создать файл на сервере (нет прав на запись или режим «Только для чтения»?)</string>
+    <string name="send_failure_write_target">не удаётся записать файл на сервере</string>
+    <string name="send_failure_other">неизвестная ошибка</string>
 </resources>

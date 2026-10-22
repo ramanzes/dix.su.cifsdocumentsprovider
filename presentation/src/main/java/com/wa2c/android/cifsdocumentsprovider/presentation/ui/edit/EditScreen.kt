@@ -326,6 +326,10 @@ fun EditScreen(
             }
         }
 
+        viewModel.syncReadOnly.collectIn(lifecycleOwner) {
+            scope.showPopup(snackbarHostState, R.string.sync_read_only, PopupMessageType.Error)
+        }
+
         viewModel.syncQueuedCount.collectIn(lifecycleOwner) { count ->
             if (count == 0) {
                 scope.showPopup(snackbarHostState, R.string.sync_nothing_new, PopupMessageType.Success)

@@ -8,6 +8,7 @@ import com.wa2c.android.cifsdocumentsprovider.common.exception.EditException
 import com.wa2c.android.cifsdocumentsprovider.domain.model.ConnectionResult
 import com.wa2c.android.cifsdocumentsprovider.common.values.HostSortType
 import com.wa2c.android.cifsdocumentsprovider.domain.model.SendDataState
+import com.wa2c.android.cifsdocumentsprovider.domain.model.SendFailure
 import com.wa2c.android.cifsdocumentsprovider.common.values.StorageType
 import com.wa2c.android.cifsdocumentsprovider.common.values.ThumbnailType
 import com.wa2c.android.cifsdocumentsprovider.common.values.UiTheme
@@ -85,6 +86,21 @@ fun Language.getLabel(context: Context): String {
         context.getString(it)
     }
 }
+
+/** SendFailure.Reason string resource ID */
+val SendFailure.Reason.labelRes: Int
+    @StringRes
+    get() = when (this) {
+        SendFailure.Reason.READ_ONLY -> R.string.send_failure_read_only
+        SendFailure.Reason.PERMISSION -> R.string.send_failure_permission
+        SendFailure.Reason.NO_SPACE -> R.string.send_failure_no_space
+        SendFailure.Reason.AUTH -> R.string.send_failure_auth
+        SendFailure.Reason.NETWORK -> R.string.send_failure_network
+        SendFailure.Reason.READ_SOURCE -> R.string.send_failure_read_source
+        SendFailure.Reason.CREATE_TARGET -> R.string.send_failure_create_target
+        SendFailure.Reason.WRITE_TARGET -> R.string.send_failure_write_target
+        SendFailure.Reason.OTHER -> R.string.send_failure_other
+    }
 
 /** SendDataState string resource ID */
 val SendDataState.labelRes: Int

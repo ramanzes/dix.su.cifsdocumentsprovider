@@ -2,6 +2,7 @@ package com.wa2c.android.cifsdocumentsprovider.domain.repository
 
 import android.net.Uri
 import android.provider.DocumentsContract
+import com.wa2c.android.cifsdocumentsprovider.common.exception.SendException
 import com.wa2c.android.cifsdocumentsprovider.common.utils.logD
 import com.wa2c.android.cifsdocumentsprovider.common.utils.logE
 import com.wa2c.android.cifsdocumentsprovider.data.storage.manager.DocumentFileManager
@@ -11,6 +12,7 @@ import com.wa2c.android.cifsdocumentsprovider.domain.model.SendData
 import com.wa2c.android.cifsdocumentsprovider.domain.model.SendDataState
 import com.wa2c.android.cifsdocumentsprovider.domain.model.SyncScanProgress
 import com.wa2c.android.cifsdocumentsprovider.domain.model.getCurrentReady
+import com.wa2c.android.cifsdocumentsprovider.domain.model.toSendFailure
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -131,7 +133,7 @@ class SendRepository @Inject internal constructor(
 
     suspend fun retry(id: String) {
         val list = sendDataList.value.map { data ->
-            if (data.id == id) data.copy(state = SendDataState.READY) else data
+            if (data.id == id) data.copy(state = SendDataState.READY, failure = null) else data
         }
         _sendDataList.emit(list)
     }
@@ -199,8 +201,12 @@ class SendRepository @Inject internal constructor(
     private suspend fun send(sendData: SendData, callback: suspend (sendParam: SendData) -> Boolean) {
         withContext(dispatcher) {
             // Get permitted output file URI
-            val targetFileUri = documentFileManager.getPermittedFileUri(sendData.targetFileUri, sendData.name, sendData.mimeType, sendData.targetMayExist) ?: let {
-                callback(sendData.copy(state = SendDataState.FAILURE))
+            val targetFileUri = try {
+                documentFileManager.getPermittedFileUri(sendData.targetFileUri, sendData.name, sendData.mimeType, sendData.targetMayExist)
+                    ?: throw SendException.CreateTarget()
+            } catch (e: Exception) {
+                logE(e)
+                callback(sendData.copy(state = SendDataState.FAILURE, failure = e.toSendFailure()))
                 return@withContext
             }
 
@@ -229,7 +235,7 @@ class SendRepository @Inject internal constructor(
                 )
             } catch (e: Exception) {
                 logE(e)
-                currentSendData = currentSendData.copy(state = SendDataState.FAILURE)
+                currentSendData = currentSendData.copy(state = SendDataState.FAILURE, failure = e.toSendFailure())
             } finally {
                 // Delete if incomplete
                 if (currentSendData.state.isIncomplete) {

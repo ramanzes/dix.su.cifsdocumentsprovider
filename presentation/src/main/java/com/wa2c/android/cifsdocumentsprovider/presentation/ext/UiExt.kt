@@ -72,6 +72,10 @@ fun SendData.getSummaryText(context: Context): String {
             val sendSpeed = "${Formatter.formatShortFileSize(context, bps)}/s (${DateUtils.formatElapsedTime(elapsedTime / 1000)})"
             "$progress% $sendSize $sendSpeed"
         }
+        SendDataState.FAILURE -> {
+            failure?.let { "${context.getString(state.labelRes)}: ${context.getString(it.reason.labelRes)}" }
+                ?: context.getString(state.labelRes)
+        }
         else -> {
             context.getString(state.labelRes)
         }
