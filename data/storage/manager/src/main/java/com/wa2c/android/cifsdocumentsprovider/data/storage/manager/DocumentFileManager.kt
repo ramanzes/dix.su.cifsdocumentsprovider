@@ -113,6 +113,110 @@ class DocumentFileManager @Inject constructor(
         return queryChildren(dirUri).filterValues { !it.isDirectory }.mapValues { it.value.size }
     }
 
+    /**
+     * Walks [localFolderUri] and [remoteFolderUri] side by side for a two-way sync, creating on
+     * each side the subfolders only the other one has. Files present on one side only are sent to
+     * the other; files on both sides with a different size go from the newer side, or end up in
+     * [TreeDiff.conflicts] if neither is newer. Nothing is ever deleted.
+     * [onFolder] is called on entering each folder with its path relative to the roots.
+     */
+    fun diffTreesRecursively(
+        localFolderUri: Uri,
+        remoteFolderUri: Uri,
+        onFolder: (path: String, diff: TreeDiff) -> Unit = { _, _ -> },
+    ): TreeDiff {
+        if (!DocumentsContract.isTreeUri(localFolderUri) || !DocumentsContract.isTreeUri(remoteFolderUri)) return TreeDiff()
+        val localDocUri = DocumentsContract.buildDocumentUriUsingTree(localFolderUri, localFolderUri.documentIdInTree())
+        val remoteDocUri = DocumentsContract.buildDocumentUriUsingTree(remoteFolderUri, remoteFolderUri.documentIdInTree())
+        return TreeDiffBuilder().also { diffRecursive(localDocUri, remoteDocUri, "", it, onFolder) }.build()
+    }
+
+    private fun diffRecursive(
+        localDirUri: Uri,
+        remoteDirUri: Uri,
+        path: String,
+        result: TreeDiffBuilder,
+        onFolder: (path: String, diff: TreeDiff) -> Unit,
+    ) {
+        onFolder(path, result.build())
+        // One listing per directory and side. An unreadable side would look empty and have
+        // everything copied over again, so such a folder is skipped instead.
+        val local = queryChildrenOrNull(localDirUri)?.filterKeys { !it.isSyncTempName() }
+        val remote = queryChildrenOrNull(remoteDirUri)?.filterKeys { !it.isSyncTempName() }
+        if (local == null || remote == null) {
+            result.failedFolders += path
+            return
+        }
+        for (name in local.keys + remote.keys) {
+            val l = local[name]
+            val r = remote[name]
+            val childPath = if (path.isEmpty()) name else "$path/$name"
+            when {
+                l != null && r != null && l.isDirectory != r.isDirectory -> result.conflicts += childPath
+                l?.isDirectory == true || r?.isDirectory == true -> {
+                    val localSub = l?.uri ?: createDirectory(localDirUri, name) ?: continue
+                    val remoteSub = r?.uri ?: createDirectory(remoteDirUri, name) ?: continue
+                    diffRecursive(localSub, remoteSub, childPath, result, onFolder)
+                }
+                l != null && r == null -> result.upload += l.toTransfer(name, remoteDirUri, targetExists = false)
+                r != null && l == null -> result.download += r.toTransfer(name, localDirUri, targetExists = false)
+                l != null && r != null -> when {
+                    l.size == r.size -> result.unchanged++
+                    l.lastModified > r.lastModified && r.lastModified > 0 -> result.upload += l.toTransfer(name, remoteDirUri, targetExists = true)
+                    r.lastModified > l.lastModified && l.lastModified > 0 -> result.download += r.toTransfer(name, localDirUri, targetExists = true)
+                    else -> result.conflicts += childPath
+                }
+            }
+        }
+    }
+
+    private fun ChildDocument.toTransfer(name: String, targetDirUri: Uri, targetExists: Boolean) = SyncTransfer(
+        sourceUri = uri,
+        targetDirUri = targetDirUri,
+        name = name,
+        size = size,
+        mimeType = mimeType,
+        targetExists = targetExists,
+    )
+
+    /**
+     * True if this app may create and overwrite files in tree [treeUri] - either granted
+     * persistently or picked during this process.
+     */
+    fun canWriteTree(treeUri: Uri): Boolean {
+        return DocumentFile.fromTreeUri(context, treeUri)?.canWrite() == true
+    }
+
+    /**
+     * Creates an empty temporary file in [dirUri] to download [name] into, so that the existing
+     * file of that name stays intact until the download is complete. See [replaceWithTemp].
+     */
+    fun createTempFile(dirUri: Uri, name: String): Uri? {
+        return DocumentsContract.createDocument(context.contentResolver, dirUri, OTHER_MIME_TYPE, name + TEMP_SUFFIX)
+    }
+
+    /**
+     * Puts completely written [tempUri] in place of the file [name] in [dirUri]. The old file is
+     * moved aside first and put back if the temporary one cannot take its name.
+     * @return URI of the replaced file
+     */
+    fun replaceWithTemp(dirUri: Uri, name: String, tempUri: Uri): Uri {
+        val resolver = context.contentResolver
+        val oldUri = queryChildren(dirUri)[name]?.uri?.let {
+            DocumentsContract.renameDocument(resolver, it, name + OLD_SUFFIX) ?: it
+        }
+        val newUri = try {
+            DocumentsContract.renameDocument(resolver, tempUri, name) ?: throw IOException("Cannot rename the download to $name")
+        } catch (e: Exception) {
+            oldUri?.let { runCatching { DocumentsContract.renameDocument(resolver, it, name) }.onFailure { logE(it) } }
+            throw e
+        }
+        oldUri?.let { runCatching { DocumentsContract.deleteDocument(resolver, it) }.onFailure { logE(it) } }
+        return newUri
+    }
+
+    private fun String.isSyncTempName() = endsWith(TEMP_SUFFIX) || endsWith(OLD_SUFFIX)
+
     private fun collectRecursive(
         sourceDir: DocumentFile,
         targetDirUri: Uri,
@@ -144,13 +248,19 @@ class DocumentFileManager @Inject constructor(
      * every name / type / length read.
      */
     private fun queryChildren(dirUri: Uri): Map<String, ChildDocument> {
-        if (!DocumentsContract.isTreeUri(dirUri)) return emptyMap()
+        return queryChildrenOrNull(dirUri) ?: emptyMap()
+    }
+
+    /** Like [queryChildren], but null if the listing failed. */
+    private fun queryChildrenOrNull(dirUri: Uri): Map<String, ChildDocument>? {
+        if (!DocumentsContract.isTreeUri(dirUri)) return null
         val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(dirUri, dirUri.documentIdInTree())
         val projection = arrayOf(
             DocumentsContract.Document.COLUMN_DOCUMENT_ID,
             DocumentsContract.Document.COLUMN_DISPLAY_NAME,
             DocumentsContract.Document.COLUMN_MIME_TYPE,
             DocumentsContract.Document.COLUMN_SIZE,
+            DocumentsContract.Document.COLUMN_LAST_MODIFIED,
         )
         return try {
             context.contentResolver.query(childrenUri, projection, null, null, null)?.use { cursor ->
@@ -158,17 +268,20 @@ class DocumentFileManager @Inject constructor(
                     while (cursor.moveToNext()) {
                         val documentId = cursor.getString(0) ?: continue
                         val name = cursor.getString(1) ?: continue
+                        val mimeType = cursor.getString(2)
                         put(name, ChildDocument(
                             uri = DocumentsContract.buildDocumentUriUsingTree(dirUri, documentId),
-                            isDirectory = cursor.getString(2) == DocumentsContract.Document.MIME_TYPE_DIR,
+                            isDirectory = mimeType == DocumentsContract.Document.MIME_TYPE_DIR,
                             size = if (cursor.isNull(3)) 0 else cursor.getLong(3),
+                            mimeType = mimeType?.ifEmpty { null } ?: OTHER_MIME_TYPE,
+                            lastModified = if (cursor.isNull(4)) 0 else cursor.getLong(4),
                         ))
                     }
                 }
-            } ?: emptyMap()
+            }
         } catch (e: Exception) {
             logE(e)
-            emptyMap()
+            null
         }
     }
 
@@ -193,7 +306,19 @@ class DocumentFileManager @Inject constructor(
         val uri: Uri,
         val isDirectory: Boolean,
         val size: Long,
+        val mimeType: String,
+        /** Milliseconds, 0 if unknown */
+        val lastModified: Long,
     )
+
+    private class TreeDiffBuilder {
+        val upload = mutableListOf<SyncTransfer>()
+        val download = mutableListOf<SyncTransfer>()
+        val conflicts = mutableListOf<String>()
+        val failedFolders = mutableListOf<String>()
+        var unchanged = 0
+        fun build() = TreeDiff(upload.toList(), download.toList(), conflicts.toList(), failedFolders.toList(), unchanged)
+    }
 
     /**
      * Size of document [uri] as its provider reports it, null if unknown.
@@ -257,6 +382,10 @@ class DocumentFileManager @Inject constructor(
 
     companion object {
         private const val OTHER_MIME_TYPE =  "application/octet-stream"
+        /** Suffix of a download in progress; such files are never synced themselves */
+        const val TEMP_SUFFIX = ".cdpsync-part"
+        /** Suffix of a file being replaced by a finished download */
+        const val OLD_SUFFIX = ".cdpsync-old"
     }
 
 }

@@ -50,6 +50,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wa2c.android.cifsdocumentsprovider.domain.model.SendData
 import com.wa2c.android.cifsdocumentsprovider.domain.model.SendDataState
+import com.wa2c.android.cifsdocumentsprovider.domain.model.displayName
 import com.wa2c.android.cifsdocumentsprovider.presentation.R
 import com.wa2c.android.cifsdocumentsprovider.presentation.ext.getSummaryText
 import com.wa2c.android.cifsdocumentsprovider.presentation.ui.common.AppSnackbarHost
@@ -316,7 +317,7 @@ private fun SendSummary(
                     .padding(vertical = Theme.Sizes.SS),
             )
             Text(
-                text = current?.let { stringResource(id = R.string.send_current, it.name) }
+                text = current?.let { stringResource(id = R.string.send_current, it.displayName) }
                     ?: stringResource(id = R.string.send_preparing),
                 style = MaterialTheme.typography.bodySmall,
             )
@@ -354,7 +355,7 @@ private fun SendDataItem(
             .padding(horizontal = Theme.Sizes.M, vertical = Theme.Sizes.S)
     ) {
         Text(
-            text = sendData.name,
+            text = sendData.displayName,
             style = MaterialTheme.typography.titleLarge,
         )
         Text(

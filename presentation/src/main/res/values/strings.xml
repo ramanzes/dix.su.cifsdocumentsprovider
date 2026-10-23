@@ -91,6 +91,8 @@
     <string name="edit_backup_auto_label">Auto backup (sync in background)</string>
     <string name="edit_backup_auto_hint">Checks for new files roughly every 15 minutes, even while the app is closed. Android may still delay this under battery restrictions - disable battery optimization above for reliable timing.</string>
     <string name="edit_backup_sync_now">Sync now</string>
+    <string name="edit_backup_two_way_label">Two-way sync</string>
+    <string name="edit_backup_two_way_hint">Also downloads to this folder the files that are only on the server. If a file differs in size on the two sides, the newer one wins. Nothing is ever deleted: a file deleted on one side comes back from the other on the next sync. Downloading needs write access to the folder - if it was picked in an older version, pick it again.</string>
 
     <string name="edit_info_section_title">Information</string>
     <string name="edit_storage_uri_title">Storage URI</string>
@@ -212,7 +214,15 @@
     <string name="sync_scan_stalled">No progress for %1$d s - waiting for the server. A slow host can take a while; if this lasts for minutes, check the connection.</string>
     <string name="sync_scan_upload_next">Uploading starts after the check.</string>
     <string name="sync_nothing_new">All files are already on the server - nothing to upload.</string>
-    <string name="send_summary">Uploaded %1$d of %2$d · failed %3$d · cancelled %4$d</string>
+    <string name="sync_scan_stage_compare">Comparing the phone folder with the server</string>
+    <string name="sync_scan_compare_counts">Folders: %1$d · files: %2$d · to upload: %3$d · to download: %4$d</string>
+    <string name="sync_scan_transfer_next">Transfers start after the check.</string>
+    <string name="sync_two_way_nothing">The phone folder and the server are in sync - nothing to transfer.</string>
+    <string name="sync_two_way_queued">Queued: %1$d to upload, %2$d to download.</string>
+    <string name="sync_two_way_no_write">%1$d files not downloaded: no write access to the phone folder. Pick the folder again and save.</string>
+    <string name="sync_two_way_conflicts">%1$d differ but neither side is newer, left as they are: %2$s</string>
+    <string name="sync_two_way_failed_folders">%1$d folders could not be read and were skipped: %2$s</string>
+    <string name="send_summary">Transferred %1$d of %2$d · failed %3$d · cancelled %4$d</string>
     <string name="send_summary_bytes">%1$s of %2$s</string>
     <string name="send_current">Now: %1$s</string>
     <string name="send_preparing">Preparing the next file…</string>

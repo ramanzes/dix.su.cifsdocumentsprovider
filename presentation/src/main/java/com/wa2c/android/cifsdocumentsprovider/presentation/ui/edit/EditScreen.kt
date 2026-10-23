@@ -336,6 +336,26 @@ fun EditScreen(
             }
         }
 
+        viewModel.twoWaySyncResult.collectIn(lifecycleOwner) { result ->
+            val lines = mutableListOf<String>()
+            if (result.uploads + result.downloads == 0) {
+                lines += context.getString(R.string.sync_two_way_nothing)
+            } else {
+                lines += context.getString(R.string.sync_two_way_queued, result.uploads, result.downloads)
+            }
+            if (result.downloadsBlocked > 0) {
+                lines += context.getString(R.string.sync_two_way_no_write, result.downloadsBlocked)
+            }
+            if (result.conflicts.isNotEmpty()) {
+                lines += context.getString(R.string.sync_two_way_conflicts, result.conflicts.size, result.conflicts.toShortList())
+            }
+            if (result.failedFolders.isNotEmpty()) {
+                lines += context.getString(R.string.sync_two_way_failed_folders, result.failedFolders.size, result.failedFolders.toShortList())
+            }
+            val isClean = result.downloadsBlocked == 0 && result.conflicts.isEmpty() && result.failedFolders.isEmpty()
+            scope.showPopup(snackbarHostState, lines.joinToString("\n"), if (isClean) PopupMessageType.Success else PopupMessageType.Warning)
+        }
+
         viewModel.keyCheckResult.collectIn(lifecycleOwner) { result ->
             if (result.isSuccess) {
                 if (!viewModel.remoteConnection.value.keyData.isNullOrEmpty()) {
@@ -352,8 +372,25 @@ fun EditScreen(
             revokePermission?.let { context.contentResolver.releasePersistableUriPermission(it, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
             grantPermission?.let { context.contentResolver.takePersistableUriPermission(it, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
         }
+
+        viewModel.updateFolderPermission.collectIn(lifecycleOwner) { folderUri ->
+            try {
+                context.contentResolver.takePersistableUriPermission(folderUri, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+            } catch (e: SecurityException) {
+                // Picked by an older version, which kept read access only - pick it again to allow writing.
+                context.contentResolver.takePersistableUriPermission(folderUri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+        }
     }
 }
+
+/** Up to a few paths for a message, with the count of the rest. */
+private fun List<String>.toShortList(): String {
+    val shown = take(SHORT_LIST_SIZE).joinToString(", ")
+    return if (size > SHORT_LIST_SIZE) "$shown, … (+${size - SHORT_LIST_SIZE})" else shown
+}
+
+private const val SHORT_LIST_SIZE = 5
 
 /**
  * Whether this app is exempt from battery optimization - if not, Android can freeze/kill the
@@ -942,6 +979,19 @@ private fun EditScreenContainer(
                             }
                             Text(
                                 text = stringResource(id = R.string.edit_backup_auto_hint),
+                                fontSize = 12.sp,
+                                modifier = Modifier.padding(bottom = Theme.Sizes.S),
+                            )
+                            InputCheck(
+                                title = stringResource(id = R.string.edit_backup_two_way_label),
+                                value = connectionState.value.twoWaySyncEnabled,
+                                enabled = isBusy.not(),
+                                focusManager = focusManager,
+                            ) { checked ->
+                                connectionState.value = connectionState.value.copy(twoWaySyncEnabled = checked)
+                            }
+                            Text(
+                                text = stringResource(id = R.string.edit_backup_two_way_hint),
                                 fontSize = 12.sp,
                                 modifier = Modifier.padding(bottom = Theme.Sizes.S),
                             )

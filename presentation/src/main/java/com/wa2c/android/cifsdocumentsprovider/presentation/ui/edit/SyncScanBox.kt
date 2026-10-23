@@ -53,8 +53,15 @@ fun SyncScanBox(progress: SyncScanProgress) {
         ) {
             CircularProgressIndicator()
             val isCheck = progress.stage == SyncScanProgress.Stage.CHECK
+            val isCompare = progress.stage == SyncScanProgress.Stage.COMPARE
             Text(
-                text = stringResource(if (isCheck) R.string.sync_scan_stage_check else R.string.sync_scan_stage_collect),
+                text = stringResource(
+                    when (progress.stage) {
+                        SyncScanProgress.Stage.COLLECT -> R.string.sync_scan_stage_collect
+                        SyncScanProgress.Stage.CHECK -> R.string.sync_scan_stage_check
+                        SyncScanProgress.Stage.COMPARE -> R.string.sync_scan_stage_compare
+                    }
+                ),
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.padding(top = Theme.Sizes.M),
             )
@@ -66,6 +73,8 @@ fun SyncScanBox(progress: SyncScanProgress) {
                         .fillMaxWidth()
                         .padding(vertical = Theme.Sizes.S),
                 )
+            } else if (isCompare) {
+                Text(stringResource(R.string.sync_scan_compare_counts, progress.folders, progress.files, progress.newFiles, progress.downloadFiles))
             } else {
                 Text(stringResource(R.string.sync_scan_collect_counts, progress.folders, progress.files))
             }
@@ -94,7 +103,7 @@ fun SyncScanBox(progress: SyncScanProgress) {
                 )
             }
             Text(
-                text = stringResource(R.string.sync_scan_upload_next),
+                text = stringResource(if (isCompare) R.string.sync_scan_transfer_next else R.string.sync_scan_upload_next),
                 style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier.padding(top = Theme.Sizes.S),
             )

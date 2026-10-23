@@ -19,6 +19,7 @@ import com.wa2c.android.cifsdocumentsprovider.common.values.URI_START
 import com.wa2c.android.cifsdocumentsprovider.domain.model.ConnectionResult
 import com.wa2c.android.cifsdocumentsprovider.domain.model.DocumentId
 import com.wa2c.android.cifsdocumentsprovider.domain.model.RemoteConnection
+import com.wa2c.android.cifsdocumentsprovider.domain.model.TwoWaySyncResult
 import com.wa2c.android.cifsdocumentsprovider.domain.repository.EditRepository
 import com.wa2c.android.cifsdocumentsprovider.domain.repository.SendRepository
 import com.wa2c.android.cifsdocumentsprovider.presentation.ext.MainCoroutineScope
@@ -116,6 +117,10 @@ class EditViewModel @Inject constructor(
     private val _syncQueuedCount = MutableSharedFlow<Int>()
     val syncQueuedCount = _syncQueuedCount.asSharedFlow()
 
+    /** Result of the last two-way "Sync now" */
+    private val _twoWaySyncResult = MutableSharedFlow<TwoWaySyncResult>()
+    val twoWaySyncResult = _twoWaySyncResult.asSharedFlow()
+
     /** "Sync now" refused to start because the connection is read-only */
     private val _syncReadOnly = MutableSharedFlow<Unit>()
     val syncReadOnly = _syncReadOnly.asSharedFlow()
@@ -126,6 +131,10 @@ class EditViewModel @Inject constructor(
     // first: grant permission uri / second: revoke permission uri
     private val _updatePermission = MutableSharedFlow<Pair<Uri?, Uri?>>()
     val updatePermission = _updatePermission.asSharedFlow()
+
+    /** Backup folder to keep read and, where granted, write access to (two-way sync writes into it) */
+    private val _updateFolderPermission = MutableSharedFlow<Uri>()
+    val updateFolderPermission = _updateFolderPermission.asSharedFlow()
 
     /** Local port of the standalone dixsu proxy, if currently running for this connection */
     private val _dixsuProxyPort = MutableStateFlow<Int?>(null)
@@ -207,9 +216,11 @@ class EditViewModel @Inject constructor(
                 val documentId = DocumentId.fromConnection(connection.id)
                     ?: throw IllegalStateException("Invalid connection")
                 val targetUri = "content$URI_START$URI_AUTHORITY/tree/${Uri.encode(documentId.idText)}".toUri()
-                sendRepository.sendFolderSkippingExisting(folderUri, targetUri)
-            }.onSuccess {
-                _syncQueuedCount.emit(it)
+                if (connection.twoWaySyncEnabled) {
+                    _twoWaySyncResult.emit(sendRepository.syncFolderTwoWay(folderUri, targetUri))
+                } else {
+                    _syncQueuedCount.emit(sendRepository.sendFolderSkippingExisting(folderUri, targetUri))
+                }
             }.onFailure {
                 _connectionResult.emit(ConnectionResult.Failure(cause = it))
             }
@@ -308,8 +319,7 @@ class EditViewModel @Inject constructor(
                     // update permission
                     val grantPermissionUri = con.keyFileUri?.toUri()
                     _updatePermission.emit(grantPermissionUri to null) // not revoke permission
-                    val grantBackupFolderUri = con.backupLocalFolderUri?.toUri()
-                    _updatePermission.emit(grantBackupFolderUri to null) // not revoke permission
+                    con.backupLocalFolderUri?.toUri()?.let { _updateFolderPermission.emit(it) }
 
                     // reconcile periodic background backup
                     val backupWorkName = BackupSyncWorker.workerName(con.id)

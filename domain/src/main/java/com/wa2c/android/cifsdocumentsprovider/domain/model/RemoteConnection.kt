@@ -42,6 +42,8 @@ data class RemoteConnection(
     val autoStartDixsuProxy: Boolean = false,
     val backupLocalFolderUri: String? = null,
     val autoBackupEnabled: Boolean = false,
+    /** Also download files that are only on the server, newer side wins on a size mismatch */
+    val twoWaySyncEnabled: Boolean = false,
     // Options
     val optionSafeTransfer: Boolean = false,
     val optionReadOnly: Boolean = false,

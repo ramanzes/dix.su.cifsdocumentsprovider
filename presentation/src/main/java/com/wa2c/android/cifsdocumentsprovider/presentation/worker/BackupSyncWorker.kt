@@ -47,7 +47,12 @@ class BackupSyncWorker(
         runCatching {
             val documentId = DocumentId.fromConnection(connection.id) ?: return@runCatching
             val targetUri = "content$URI_START$URI_AUTHORITY/tree/${Uri.encode(documentId.idText)}".toUri()
-            sendRepository.sendFolderSkippingExisting(folderUri, targetUri)
+            if (connection.twoWaySyncEnabled) {
+                val result = sendRepository.syncFolderTwoWay(folderUri, targetUri)
+                logD("BackupSyncWorker two-way: $result")
+            } else {
+                sendRepository.sendFolderSkippingExisting(folderUri, targetUri)
+            }
         }.onFailure {
             logE(it)
         }

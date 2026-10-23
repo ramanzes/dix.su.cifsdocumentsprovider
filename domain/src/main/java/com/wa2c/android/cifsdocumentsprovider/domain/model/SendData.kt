@@ -28,6 +28,8 @@ data class SendData(
     val targetMayExist: Boolean = true,
     /** Why the transfer failed, if it did */
     val failure: SendFailure? = null,
+    /** Phone to server, or server to phone (two-way sync) */
+    val direction: SendDirection = SendDirection.UPLOAD,
 ) {
     /** Progress percentage */
     val progress: Int
@@ -42,6 +44,15 @@ data class SendData(
         get() = (elapsedTime / 1000).let { if (it > 0) { progressSize / it } else { 0 } }
 
 }
+
+enum class SendDirection {
+    UPLOAD,
+    DOWNLOAD,
+}
+
+/** Name to show in lists and notifications: downloads are marked so they stand out among uploads. */
+val SendData.displayName: String
+    get() = if (direction == SendDirection.DOWNLOAD) "↓ $name" else name
 
 /**
  * Get current ready data

@@ -91,6 +91,8 @@
     <string name="edit_backup_auto_label">Автобэкап (синхронизация в фоне)</string>
     <string name="edit_backup_auto_hint">Проверяет наличие новых файлов примерно раз в 15 минут, даже когда приложение закрыто. Android может задерживать это при ограничениях батареи — отключите оптимизацию батареи выше для надёжного расписания.</string>
     <string name="edit_backup_sync_now">Синхронизировать сейчас</string>
+    <string name="edit_backup_two_way_label">Двусторонняя синхронизация</string>
+    <string name="edit_backup_two_way_hint">Также скачивает в эту папку файлы, которые есть только на сервере. Если размер файла на двух сторонах различается, побеждает более новый. Ничего не удаляется: файл, удалённый на одной стороне, вернётся с другой при следующей синхронизации. Для скачивания нужен доступ на запись в папку - если она выбрана в старой версии, выберите её заново.</string>
 
     <string name="edit_info_section_title">Информация</string>
     <string name="edit_storage_uri_title">URI хранилища</string>
@@ -212,7 +214,15 @@
     <string name="sync_scan_stalled">Нет продвижения %1$d с — ждём ответа сервера. Медленный хост может отвечать долго; если это длится минуты — проверьте связь.</string>
     <string name="sync_scan_upload_next">Загрузка начнётся после проверки.</string>
     <string name="sync_nothing_new">Все файлы уже на сервере — загружать нечего.</string>
-    <string name="send_summary">Загружено %1$d из %2$d · ошибок %3$d · отменено %4$d</string>
+    <string name="sync_scan_stage_compare">Сверка папки телефона с сервером</string>
+    <string name="sync_scan_compare_counts">Папок: %1$d · файлов: %2$d · загрузить: %3$d · скачать: %4$d</string>
+    <string name="sync_scan_transfer_next">Передача начнётся после сверки.</string>
+    <string name="sync_two_way_nothing">Папка телефона и сервер совпадают - передавать нечего.</string>
+    <string name="sync_two_way_queued">В очереди: загрузить %1$d, скачать %2$d.</string>
+    <string name="sync_two_way_no_write">Не скачано файлов: %1$d - нет доступа на запись в папку телефона. Выберите папку заново и сохраните.</string>
+    <string name="sync_two_way_conflicts">Различаются, но ни одна сторона не новее (оставлены как есть): %1$d - %2$s</string>
+    <string name="sync_two_way_failed_folders">Не удалось прочитать папок: %1$d, пропущены - %2$s</string>
+    <string name="send_summary">Передано %1$d из %2$d · ошибок %3$d · отменено %4$d</string>
     <string name="send_summary_bytes">%1$s из %2$s</string>
     <string name="send_current">Сейчас: %1$s</string>
     <string name="send_preparing">Подготовка следующего файла…</string>

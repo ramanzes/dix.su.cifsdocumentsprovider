@@ -117,5 +117,6 @@ sealed class StorageConnection {
         val autoStartDixsuProxy: Boolean = false,
         val backupLocalFolderUri: String? = null,
         val autoBackupEnabled: Boolean = false,
+        val twoWaySyncEnabled: Boolean = false,
     ) : StorageConnection()
 }

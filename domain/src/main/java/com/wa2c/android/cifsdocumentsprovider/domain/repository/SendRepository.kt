@@ -3,14 +3,18 @@ package com.wa2c.android.cifsdocumentsprovider.domain.repository
 import android.net.Uri
 import android.provider.DocumentsContract
 import com.wa2c.android.cifsdocumentsprovider.common.exception.SendException
+import com.wa2c.android.cifsdocumentsprovider.common.utils.generateUUID
 import com.wa2c.android.cifsdocumentsprovider.common.utils.logD
 import com.wa2c.android.cifsdocumentsprovider.common.utils.logE
 import com.wa2c.android.cifsdocumentsprovider.data.storage.manager.DocumentFileManager
+import com.wa2c.android.cifsdocumentsprovider.data.storage.manager.SyncTransfer
 import com.wa2c.android.cifsdocumentsprovider.domain.IoDispatcher
 import com.wa2c.android.cifsdocumentsprovider.domain.mapper.DomainMapper.toSendData
 import com.wa2c.android.cifsdocumentsprovider.domain.model.SendData
+import com.wa2c.android.cifsdocumentsprovider.domain.model.SendDirection
 import com.wa2c.android.cifsdocumentsprovider.domain.model.SendDataState
 import com.wa2c.android.cifsdocumentsprovider.domain.model.SyncScanProgress
+import com.wa2c.android.cifsdocumentsprovider.domain.model.TwoWaySyncResult
 import com.wa2c.android.cifsdocumentsprovider.domain.model.getCurrentReady
 import com.wa2c.android.cifsdocumentsprovider.domain.model.toSendFailure
 import kotlinx.coroutines.CoroutineDispatcher
@@ -110,6 +114,56 @@ class SendRepository @Inject internal constructor(
         return inputList.size
     }
 
+    /**
+     * Two-way counterpart of [sendFolderSkippingExisting]: also queues downloads of files that are
+     * only on the server (or newer there) into [localFolderUri]. Nothing is deleted on either side.
+     * Without write access to [localFolderUri] only the uploads are queued.
+     * Reports its progress in [syncScanProgress].
+     */
+    suspend fun syncFolderTwoWay(localFolderUri: Uri, remoteUri: Uri): TwoWaySyncResult {
+        val (diff, canWrite) = withContext(dispatcher) {
+            try {
+                var progress = SyncScanProgress(stage = SyncScanProgress.Stage.COMPARE)
+                _syncScanProgress.value = progress
+                val canWrite = documentFileManager.canWriteTree(localFolderUri)
+                documentFileManager.diffTreesRecursively(localFolderUri, remoteUri) { path, diff ->
+                    progress = progress.copy(
+                        folders = progress.folders + 1,
+                        files = diff.files,
+                        newFiles = diff.upload.size,
+                        downloadFiles = diff.download.size,
+                        currentFolder = path,
+                        updateTime = System.currentTimeMillis(),
+                    )
+                    _syncScanProgress.value = progress
+                } to canWrite
+            } finally {
+                _syncScanProgress.value = null
+            }
+        }
+        val uploads = diff.upload.map { it.toSendData(SendDirection.UPLOAD) }
+        val downloads = if (canWrite) diff.download.map { it.toSendData(SendDirection.DOWNLOAD) } else emptyList()
+        _sendDataList.emit(sendDataList.value + uploads + downloads)
+        return TwoWaySyncResult(
+            uploads = uploads.size,
+            downloads = downloads.size,
+            conflicts = diff.conflicts,
+            failedFolders = diff.failedFolders,
+            downloadsBlocked = if (canWrite) 0 else diff.download.size,
+        )
+    }
+
+    private fun SyncTransfer.toSendData(direction: SendDirection) = SendData(
+        id = generateUUID(),
+        name = name,
+        size = size,
+        mimeType = mimeType,
+        sourceFileUri = sourceUri,
+        targetFileUri = targetDirUri,
+        targetMayExist = targetExists,
+        direction = direction,
+    )
+
     /** Folder path of a target document URI, relative to the connection root. */
     private fun Uri.folderPath(): String {
         return runCatching { DocumentsContract.getDocumentId(this).substringAfter(':') }.getOrDefault("")
@@ -202,10 +256,16 @@ class SendRepository @Inject internal constructor(
      */
     private suspend fun send(sendData: SendData, callback: suspend (sendParam: SendData) -> Boolean) {
         withContext(dispatcher) {
+            // A download replacing a local file goes to a temporary file first, so that a failed
+            // transfer (whose target is deleted below) cannot take the existing file with it.
+            val viaTemp = sendData.direction == SendDirection.DOWNLOAD && sendData.targetMayExist
             // Get permitted output file URI
             val targetFileUri = try {
-                documentFileManager.getPermittedFileUri(sendData.targetFileUri, sendData.name, sendData.mimeType, sendData.targetMayExist)
-                    ?: throw SendException.CreateTarget()
+                if (viaTemp) {
+                    documentFileManager.createTempFile(sendData.targetFileUri, sendData.name)
+                } else {
+                    documentFileManager.getPermittedFileUri(sendData.targetFileUri, sendData.name, sendData.mimeType, sendData.targetMayExist)
+                } ?: throw SendException.CreateTarget()
             } catch (e: Exception) {
                 logE(e)
                 callback(sendData.copy(state = SendDataState.FAILURE, failure = e.toSendFailure()))
@@ -228,6 +288,13 @@ class SendRepository @Inject internal constructor(
                     return@sendFile true
                 }
                 if (isSuccess) awaitTargetSize(targetFileUri, currentSendData.progressSize)
+                if (isSuccess && viaTemp) {
+                    try {
+                        documentFileManager.replaceWithTemp(sendData.targetFileUri, sendData.name, targetFileUri)
+                    } catch (e: Exception) {
+                        throw SendException.WriteTarget(e)
+                    }
+                }
 
                 currentSendData = currentSendData.copy(
                     state = when {

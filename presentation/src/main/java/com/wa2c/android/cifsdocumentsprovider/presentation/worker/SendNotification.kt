@@ -13,6 +13,7 @@ import androidx.core.app.NotificationCompat
 import androidx.work.ForegroundInfo
 import com.wa2c.android.cifsdocumentsprovider.common.values.NOTIFICATION_CHANNEL_ID_SEND
 import com.wa2c.android.cifsdocumentsprovider.domain.model.SendDataState
+import com.wa2c.android.cifsdocumentsprovider.domain.model.displayName
 import com.wa2c.android.cifsdocumentsprovider.domain.model.SendData
 import com.wa2c.android.cifsdocumentsprovider.presentation.R
 import com.wa2c.android.cifsdocumentsprovider.presentation.ext.getSummaryText
@@ -74,7 +75,7 @@ class SendNotification constructor(
                     // show progress
                     builder.setAutoCancel(false)
                     builder.setOngoing(true)
-                    builder.setContentTitle(sendData.name)
+                    builder.setContentTitle(sendData.displayName)
                     builder.setContentText(sendData.getSummaryText(context))
                     builder.setSubText("[$countCurrent/$countAll]")
                     builder.setProgress(100, sendData.progress, false)

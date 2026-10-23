@@ -178,6 +178,7 @@ internal object DomainMapper {
                     autoStartDixsuProxy = autoStartDixsuProxy,
                     backupLocalFolderUri = backupLocalFolderUri,
                     autoBackupEnabled = autoBackupEnabled,
+                    twoWaySyncEnabled = twoWaySyncEnabled,
                     optionSafeTransfer = safeTransfer,
                     optionReadOnly = readOnly,
                     optionThumbnailTypes = thumbnailTypes.mapNotNull { ThumbnailType.findByType(it) },
@@ -291,6 +292,7 @@ internal object DomainMapper {
                     autoStartDixsuProxy = autoStartDixsuProxy,
                     backupLocalFolderUri = backupLocalFolderUri,
                     autoBackupEnabled = autoBackupEnabled,
+                    twoWaySyncEnabled = twoWaySyncEnabled,
                 )
             }
         }
