@@ -7,14 +7,12 @@ data class SyncScanProgress(
     val stage: Stage,
     /** Folders walked so far */
     val folders: Int = 0,
-    /** Files found (COLLECT) or compared with the server (CHECK) so far */
+    /** Files found (COLLECT), compared with the server (CHECK), paths seen (COMPARE) or items moved (TRASH) so far */
     val files: Int = 0,
-    /** Total files to compare (CHECK only) */
+    /** Total files to compare (CHECK) or items to move (TRASH) */
     val total: Int = 0,
-    /** Files not on the server yet (CHECK), or to upload (COMPARE) */
+    /** Files not on the server yet (CHECK only) */
     val newFiles: Int = 0,
-    /** Files to download to the phone (COMPARE only) */
-    val downloadFiles: Int = 0,
     /** Folder being processed, relative to the backup folder */
     val currentFolder: String = "",
     val startTime: Long = System.currentTimeMillis(),
@@ -26,7 +24,9 @@ data class SyncScanProgress(
         COLLECT,
         /** Comparing local files with the server listings */
         CHECK,
-        /** Two-way sync: walking the local and the server tree together */
+        /** Walking the local and the server tree together, changing nothing */
         COMPARE,
+        /** Moving deleted items into the trash folder */
+        TRASH,
     }
 }

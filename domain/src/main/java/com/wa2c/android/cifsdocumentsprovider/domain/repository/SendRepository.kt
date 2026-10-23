@@ -7,14 +7,21 @@ import com.wa2c.android.cifsdocumentsprovider.common.utils.generateUUID
 import com.wa2c.android.cifsdocumentsprovider.common.utils.logD
 import com.wa2c.android.cifsdocumentsprovider.common.utils.logE
 import com.wa2c.android.cifsdocumentsprovider.data.storage.manager.DocumentFileManager
-import com.wa2c.android.cifsdocumentsprovider.data.storage.manager.SyncTransfer
+import com.wa2c.android.cifsdocumentsprovider.data.storage.manager.TreeNode
 import com.wa2c.android.cifsdocumentsprovider.domain.IoDispatcher
 import com.wa2c.android.cifsdocumentsprovider.domain.mapper.DomainMapper.toSendData
 import com.wa2c.android.cifsdocumentsprovider.domain.model.SendData
 import com.wa2c.android.cifsdocumentsprovider.domain.model.SendDirection
 import com.wa2c.android.cifsdocumentsprovider.domain.model.SendDataState
 import com.wa2c.android.cifsdocumentsprovider.domain.model.SyncScanProgress
-import com.wa2c.android.cifsdocumentsprovider.domain.model.TwoWaySyncResult
+import com.wa2c.android.cifsdocumentsprovider.domain.model.SyncAction
+import com.wa2c.android.cifsdocumentsprovider.domain.model.SyncActionType
+import com.wa2c.android.cifsdocumentsprovider.domain.model.SyncEntry
+import com.wa2c.android.cifsdocumentsprovider.domain.model.SyncMode
+import com.wa2c.android.cifsdocumentsprovider.domain.model.SyncResult
+import com.wa2c.android.cifsdocumentsprovider.domain.model.SyncSide
+import com.wa2c.android.cifsdocumentsprovider.domain.sync.PreparedSync
+import com.wa2c.android.cifsdocumentsprovider.domain.sync.SyncPlanner
 import com.wa2c.android.cifsdocumentsprovider.domain.model.getCurrentReady
 import com.wa2c.android.cifsdocumentsprovider.domain.model.toSendFailure
 import kotlinx.coroutines.CoroutineDispatcher
@@ -23,6 +30,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 import java.io.IOException
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -118,51 +128,114 @@ class SendRepository @Inject internal constructor(
      * Two-way counterpart of [sendFolderSkippingExisting]: also queues downloads of files that are
      * only on the server (or newer there) into [localFolderUri]. Nothing is deleted on either side.
      * Without write access to [localFolderUri] only the uploads are queued.
+     */
+    suspend fun syncFolderTwoWay(localFolderUri: Uri, remoteUri: Uri): SyncResult {
+        return executeSync(prepareSync(SyncMode.TWO_WAY, localFolderUri, remoteUri))
+    }
+
+    /**
+     * Compares [localFolderUri] with [remoteUri] and plans a sync in [mode], changing nothing.
      * Reports its progress in [syncScanProgress].
      */
-    suspend fun syncFolderTwoWay(localFolderUri: Uri, remoteUri: Uri): TwoWaySyncResult {
-        val (diff, canWrite) = withContext(dispatcher) {
+    suspend fun prepareSync(mode: SyncMode, localFolderUri: Uri, remoteUri: Uri, canWriteRemote: Boolean = true): PreparedSync {
+        return withContext(dispatcher) {
             try {
                 var progress = SyncScanProgress(stage = SyncScanProgress.Stage.COMPARE)
                 _syncScanProgress.value = progress
-                val canWrite = documentFileManager.canWriteTree(localFolderUri)
-                documentFileManager.diffTreesRecursively(localFolderUri, remoteUri) { path, diff ->
-                    progress = progress.copy(
-                        folders = progress.folders + 1,
-                        files = diff.files,
-                        newFiles = diff.upload.size,
-                        downloadFiles = diff.download.size,
-                        currentFolder = path,
-                        updateTime = System.currentTimeMillis(),
-                    )
+                val comparison = documentFileManager.compareTrees(localFolderUri, remoteUri) { path, folders, paths ->
+                    progress = progress.copy(folders = folders, files = paths, currentFolder = path, updateTime = System.currentTimeMillis())
                     _syncScanProgress.value = progress
-                } to canWrite
+                }
+                val plan = SyncPlanner.plan(
+                    mode = mode,
+                    entries = comparison.entries.map { SyncEntry(it.path, it.local?.toSide(), it.remote?.toSide()) },
+                    failedFolders = comparison.failedFolders,
+                    canWriteLocal = documentFileManager.canWriteTree(localFolderUri),
+                    canWriteRemote = canWriteRemote,
+                )
+                PreparedSync(plan, localFolderUri, remoteUri, comparison.entries.associateBy { it.path })
             } finally {
                 _syncScanProgress.value = null
             }
         }
-        val uploads = diff.upload.map { it.toSendData(SendDirection.UPLOAD) }
-        val downloads = if (canWrite) diff.download.map { it.toSendData(SendDirection.DOWNLOAD) } else emptyList()
-        _sendDataList.emit(sendDataList.value + uploads + downloads)
-        return TwoWaySyncResult(
-            uploads = uploads.size,
-            downloads = downloads.size,
-            conflicts = diff.conflicts,
-            failedFolders = diff.failedFolders,
-            downloadsBlocked = if (canWrite) 0 else diff.download.size,
-        )
     }
 
-    private fun SyncTransfer.toSendData(direction: SendDirection) = SendData(
-        id = generateUUID(),
-        name = name,
-        size = size,
-        mimeType = mimeType,
-        sourceFileUri = sourceUri,
-        targetFileUri = targetDirUri,
-        targetMayExist = targetExists,
-        direction = direction,
-    )
+    private fun TreeNode.toSide() = SyncSide(isDirectory = isDirectory, size = size, lastModified = lastModified)
+
+    /**
+     * Runs exactly the actions of [prepared]: deletions first (moved into the trash folder, and
+     * only if the file has not changed since the scan), then the copies are queued for [SendWorker].
+     * Phone-side actions are left out without write access to the phone folder.
+     */
+    suspend fun executeSync(prepared: PreparedSync): SyncResult {
+        val plan = prepared.plan
+        var trashed = 0
+        val skippedChanged = mutableListOf<String>()
+        val failed = mutableListOf<String>()
+        var localBlocked = 0
+        val trashName = SimpleDateFormat(TRASH_NAME_FORMAT, Locale.US).format(Date())
+        val queue = withContext(dispatcher) {
+            val canWriteLocal = documentFileManager.canWriteTree(prepared.localFolderUri)
+            val localFolders = documentFileManager.DirectoryResolver(prepared.localFolderUri)
+            val remoteFolders = documentFileManager.DirectoryResolver(prepared.remoteUri)
+            val isLocalTarget = { action: SyncAction -> action.type == SyncActionType.DOWNLOAD || action.type == SyncActionType.DELETE_LOCAL }
+            val actions = plan.actions.filter { canWriteLocal || !isLocalTarget(it) }
+            localBlocked = plan.actions.size - actions.size
+
+            val deletes = actions.filter { it.type.isDelete }
+            try {
+                var progress = SyncScanProgress(stage = SyncScanProgress.Stage.TRASH, total = deletes.size)
+                deletes.forEach { action ->
+                    progress = progress.copy(files = progress.files + 1, currentFolder = action.path, updateTime = System.currentTimeMillis())
+                    _syncScanProgress.value = progress
+                    val isLocal = action.type == SyncActionType.DELETE_LOCAL
+                    val entry = prepared.entries[action.path]
+                    val node = if (isLocal) entry?.local else entry?.remote
+                    when {
+                        node == null -> failed += action.path
+                        !node.isDirectory && documentFileManager.getFileSize(node.uri) != node.size -> skippedChanged += action.path
+                        documentFileManager.moveToTrash(if (isLocal) localFolders else remoteFolders, action.path, node.uri, trashName) -> {
+                            trashed += if (action.isDirectory) action.fileCount else 1
+                        }
+                        else -> failed += action.path
+                    }
+                }
+            } finally {
+                _syncScanProgress.value = null
+            }
+
+            actions.filter { !it.type.isDelete }.mapNotNull { action ->
+                val isUpload = action.type == SyncActionType.UPLOAD
+                val entry = prepared.entries[action.path]
+                val source = (if (isUpload) entry?.local else entry?.remote) ?: return@mapNotNull null.also { failed += action.path }
+                val parentPath = action.path.substringBeforeLast('/', "")
+                val targetDir = (if (isUpload) remoteFolders else localFolders).resolve(parentPath)
+                    ?: return@mapNotNull null.also { failed += action.path }
+                SendData(
+                    id = generateUUID(),
+                    name = action.path.substringAfterLast('/'),
+                    size = source.size,
+                    mimeType = source.mimeType,
+                    sourceFileUri = source.uri,
+                    targetFileUri = targetDir,
+                    targetMayExist = action.overwrite,
+                    direction = if (isUpload) SendDirection.UPLOAD else SendDirection.DOWNLOAD,
+                )
+            }
+        }
+        _sendDataList.emit(sendDataList.value + queue)
+        return SyncResult(
+            uploads = queue.count { it.direction == SendDirection.UPLOAD },
+            downloads = queue.count { it.direction == SendDirection.DOWNLOAD },
+            trashed = trashed,
+            trashFolder = if (trashed > 0) "${DocumentFileManager.TRASH_DIR}/$trashName" else null,
+            skippedChanged = skippedChanged,
+            failed = failed,
+            conflicts = plan.conflicts,
+            failedFolders = plan.failedFolders,
+            localBlocked = localBlocked,
+        )
+    }
 
     /** Folder path of a target document URI, relative to the connection root. */
     private fun Uri.folderPath(): String {
@@ -340,6 +413,7 @@ class SendRepository @Inject internal constructor(
         private const val NOTIFY_CYCLE = 500
         private const val VERIFY_INTERVAL = 500L
         private const val VERIFY_TIMEOUT = 60_000L
+        private const val TRASH_NAME_FORMAT = "yyyy-MM-dd_HH-mm-ss"
     }
 
 }

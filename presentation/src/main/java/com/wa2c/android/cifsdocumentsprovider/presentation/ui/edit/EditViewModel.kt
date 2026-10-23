@@ -19,7 +19,10 @@ import com.wa2c.android.cifsdocumentsprovider.common.values.URI_START
 import com.wa2c.android.cifsdocumentsprovider.domain.model.ConnectionResult
 import com.wa2c.android.cifsdocumentsprovider.domain.model.DocumentId
 import com.wa2c.android.cifsdocumentsprovider.domain.model.RemoteConnection
-import com.wa2c.android.cifsdocumentsprovider.domain.model.TwoWaySyncResult
+import com.wa2c.android.cifsdocumentsprovider.domain.model.SyncMode
+import com.wa2c.android.cifsdocumentsprovider.domain.model.SyncPlan
+import com.wa2c.android.cifsdocumentsprovider.domain.model.SyncResult
+import com.wa2c.android.cifsdocumentsprovider.domain.sync.PreparedSync
 import com.wa2c.android.cifsdocumentsprovider.domain.repository.EditRepository
 import com.wa2c.android.cifsdocumentsprovider.domain.repository.SendRepository
 import com.wa2c.android.cifsdocumentsprovider.presentation.ext.MainCoroutineScope
@@ -117,9 +120,14 @@ class EditViewModel @Inject constructor(
     private val _syncQueuedCount = MutableSharedFlow<Int>()
     val syncQueuedCount = _syncQueuedCount.asSharedFlow()
 
-    /** Result of the last two-way "Sync now" */
-    private val _twoWaySyncResult = MutableSharedFlow<TwoWaySyncResult>()
-    val twoWaySyncResult = _twoWaySyncResult.asSharedFlow()
+    /** Result of the last two-way "Sync now" or confirmed preview */
+    private val _syncResult = MutableSharedFlow<SyncResult>()
+    val syncResult = _syncResult.asSharedFlow()
+
+    /** Plan shown for review before anything is changed; null when no preview is open */
+    private var preparedSync: PreparedSync? = null
+    private val _syncPreview = MutableStateFlow<SyncPlan?>(null)
+    val syncPreview = _syncPreview.asStateFlow()
 
     /** "Sync now" refused to start because the connection is read-only */
     private val _syncReadOnly = MutableSharedFlow<Unit>()
@@ -211,13 +219,9 @@ class EditViewModel @Inject constructor(
             _isBusy.emit(true)
             runCatching {
                 val connection = remoteConnection.value
-                val folderUri = connection.backupLocalFolderUri?.toUri()
-                    ?: throw IllegalStateException("No backup folder selected")
-                val documentId = DocumentId.fromConnection(connection.id)
-                    ?: throw IllegalStateException("Invalid connection")
-                val targetUri = "content$URI_START$URI_AUTHORITY/tree/${Uri.encode(documentId.idText)}".toUri()
+                val (folderUri, targetUri) = connection.syncRoots()
                 if (connection.twoWaySyncEnabled) {
-                    _twoWaySyncResult.emit(sendRepository.syncFolderTwoWay(folderUri, targetUri))
+                    _syncResult.emit(sendRepository.syncFolderTwoWay(folderUri, targetUri))
                 } else {
                     _syncQueuedCount.emit(sendRepository.sendFolderSkippingExisting(folderUri, targetUri))
                 }
@@ -225,6 +229,69 @@ class EditViewModel @Inject constructor(
                 _connectionResult.emit(ConnectionResult.Failure(cause = it))
             }
             _isBusy.emit(false)
+        }
+    }
+
+    /** Backup folder and this connection's root, as tree URIs */
+    private fun RemoteConnection.syncRoots(): Pair<Uri, Uri> {
+        val folderUri = backupLocalFolderUri?.toUri() ?: throw IllegalStateException("No backup folder selected")
+        val documentId = DocumentId.fromConnection(id) ?: throw IllegalStateException("Invalid connection")
+        return folderUri to "content$URI_START$URI_AUTHORITY/tree/${Uri.encode(documentId.idText)}".toUri()
+    }
+
+    /**
+     * "Preview": what "Sync now" would do in the current mode, without doing it.
+     */
+    fun onClickPreview() {
+        prepareSync(if (remoteConnection.value.twoWaySyncEnabled) SyncMode.TWO_WAY else SyncMode.UPLOAD)
+    }
+
+    /**
+     * Make one side the same as the other - shown for review and confirmation first.
+     */
+    fun onClickMirror(mode: SyncMode) {
+        prepareSync(mode)
+    }
+
+    private fun prepareSync(mode: SyncMode) {
+        launch {
+            _isBusy.emit(true)
+            runCatching {
+                val connection = remoteConnection.value
+                val (folderUri, targetUri) = connection.syncRoots()
+                sendRepository.prepareSync(mode, folderUri, targetUri, canWriteRemote = !connection.optionReadOnly)
+            }.onSuccess {
+                preparedSync = it
+                _syncPreview.emit(it.plan)
+            }.onFailure {
+                _connectionResult.emit(ConnectionResult.Failure(cause = it))
+            }
+            _isBusy.emit(false)
+        }
+    }
+
+    /** Run the previewed plan as shown */
+    fun onConfirmSyncPreview() {
+        val prepared = preparedSync ?: return
+        launch {
+            _syncPreview.emit(null)
+            preparedSync = null
+            _isBusy.emit(true)
+            runCatching {
+                sendRepository.executeSync(prepared)
+            }.onSuccess {
+                _syncResult.emit(it)
+            }.onFailure {
+                _connectionResult.emit(ConnectionResult.Failure(cause = it))
+            }
+            _isBusy.emit(false)
+        }
+    }
+
+    fun onDismissSyncPreview() {
+        launch {
+            preparedSync = null
+            _syncPreview.emit(null)
         }
     }
 

@@ -14,6 +14,7 @@ import android.provider.Settings
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -55,6 +56,7 @@ import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalAutofillManager
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
@@ -81,6 +83,7 @@ import com.wa2c.android.cifsdocumentsprovider.common.values.URI_START
 import com.wa2c.android.cifsdocumentsprovider.domain.model.ConnectionResult
 import com.wa2c.android.cifsdocumentsprovider.domain.model.DocumentId
 import com.wa2c.android.cifsdocumentsprovider.domain.model.RemoteConnection
+import com.wa2c.android.cifsdocumentsprovider.domain.model.SyncMode
 import com.wa2c.android.cifsdocumentsprovider.domain.model.SyncScanProgress
 import com.wa2c.android.cifsdocumentsprovider.domain.model.StorageUri
 import com.wa2c.android.cifsdocumentsprovider.presentation.R
@@ -127,6 +130,7 @@ fun EditScreen(
     val scope = rememberCoroutineScope()
     val clipboardManager = LocalClipboard.current
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var showMirrorDialog by remember { mutableStateOf(false) }
     var showBackConfirmationDialog by remember { mutableStateOf(false) }
     var showKeyInputDialog by remember { mutableStateOf(false) }
     var showKeyImportWarningDialog by remember { mutableStateOf(false) }
@@ -163,6 +167,8 @@ fun EditScreen(
         onClickSelectBackupFolder = { backupFolderOpenLauncher.launch(null) },
         onClickClearBackupFolder = { viewModel.clearBackupFolder() },
         onClickSyncNow = { viewModel.onClickSyncNow() },
+        onClickSyncPreview = { viewModel.onClickPreview() },
+        onClickMirror = { showMirrorDialog = true },
         onClickBack = {
             if (viewModel.isChanged) {
                 showBackConfirmationDialog = true
@@ -202,6 +208,47 @@ fun EditScreen(
         },
         onClickSave = { viewModel.onClickSave() },
     )
+
+    // Mirror source dialog
+    if (showMirrorDialog) {
+        CommonDialog(
+            title = stringResource(id = R.string.sync_mirror_dialog_title),
+            confirmButtons = null,
+            dismissButton = DialogButton(label = stringResource(id = R.string.general_close)) {
+                showMirrorDialog = false
+            },
+            onDismiss = {
+                showMirrorDialog = false
+            }
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(Theme.Sizes.S)) {
+                Text(stringResource(id = R.string.sync_mirror_dialog_message))
+                MirrorOption(
+                    title = stringResource(id = R.string.sync_mirror_to_server),
+                    description = stringResource(id = R.string.sync_mirror_to_server_hint),
+                ) {
+                    showMirrorDialog = false
+                    viewModel.onClickMirror(SyncMode.MIRROR_TO_SERVER)
+                }
+                MirrorOption(
+                    title = stringResource(id = R.string.sync_mirror_to_phone),
+                    description = stringResource(id = R.string.sync_mirror_to_phone_hint),
+                ) {
+                    showMirrorDialog = false
+                    viewModel.onClickMirror(SyncMode.MIRROR_TO_PHONE)
+                }
+            }
+        }
+    }
+
+    // Sync preview
+    viewModel.syncPreview.collectAsStateWithLifecycle().value?.let { plan ->
+        SyncPreviewDialog(
+            plan = plan,
+            onConfirm = { viewModel.onConfirmSyncPreview() },
+            onDismiss = { viewModel.onDismissSyncPreview() },
+        )
+    }
 
     // Delete dialog
     if (showDeleteDialog) {
@@ -336,15 +383,24 @@ fun EditScreen(
             }
         }
 
-        viewModel.twoWaySyncResult.collectIn(lifecycleOwner) { result ->
+        viewModel.syncResult.collectIn(lifecycleOwner) { result ->
             val lines = mutableListOf<String>()
-            if (result.uploads + result.downloads == 0) {
-                lines += context.getString(R.string.sync_two_way_nothing)
-            } else {
+            if (result.uploads + result.downloads > 0) {
                 lines += context.getString(R.string.sync_two_way_queued, result.uploads, result.downloads)
+            } else if (result.trashFolder == null) {
+                lines += context.getString(R.string.sync_two_way_nothing)
             }
-            if (result.downloadsBlocked > 0) {
-                lines += context.getString(R.string.sync_two_way_no_write, result.downloadsBlocked)
+            result.trashFolder?.let {
+                lines += context.getString(R.string.sync_result_trashed, result.trashed, it)
+            }
+            if (result.skippedChanged.isNotEmpty()) {
+                lines += context.getString(R.string.sync_result_skipped_changed, result.skippedChanged.size, result.skippedChanged.toShortList())
+            }
+            if (result.failed.isNotEmpty()) {
+                lines += context.getString(R.string.sync_result_failed, result.failed.size, result.failed.toShortList())
+            }
+            if (result.localBlocked > 0) {
+                lines += context.getString(R.string.sync_two_way_no_write, result.localBlocked)
             }
             if (result.conflicts.isNotEmpty()) {
                 lines += context.getString(R.string.sync_two_way_conflicts, result.conflicts.size, result.conflicts.toShortList())
@@ -352,7 +408,8 @@ fun EditScreen(
             if (result.failedFolders.isNotEmpty()) {
                 lines += context.getString(R.string.sync_two_way_failed_folders, result.failedFolders.size, result.failedFolders.toShortList())
             }
-            val isClean = result.downloadsBlocked == 0 && result.conflicts.isEmpty() && result.failedFolders.isEmpty()
+            val isClean = result.localBlocked == 0 && result.conflicts.isEmpty() && result.failedFolders.isEmpty()
+                    && result.skippedChanged.isEmpty() && result.failed.isEmpty()
             scope.showPopup(snackbarHostState, lines.joinToString("\n"), if (isClean) PopupMessageType.Success else PopupMessageType.Warning)
         }
 
@@ -380,6 +437,17 @@ fun EditScreen(
                 // Picked by an older version, which kept read access only - pick it again to allow writing.
                 context.contentResolver.takePersistableUriPermission(folderUri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
+        }
+    }
+}
+
+/** One choice of the mirror source dialog */
+@Composable
+private fun MirrorOption(title: String, description: String, onClick: () -> Unit) {
+    OutlinedButton(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.fillMaxWidth().padding(vertical = Theme.Sizes.SS)) {
+            Text(text = title, fontWeight = FontWeight.Bold)
+            Text(text = description, fontSize = 12.sp)
         }
     }
 }
@@ -420,6 +488,8 @@ private fun EditScreenContainer(
     onClickSelectBackupFolder: () -> Unit,
     onClickClearBackupFolder: () -> Unit,
     onClickSyncNow: () -> Unit,
+    onClickSyncPreview: () -> Unit,
+    onClickMirror: () -> Unit,
     onClickBack: () -> Unit,
     onClickDelete: () -> Unit,
     onClickSearchHost: () -> Unit,
@@ -963,6 +1033,12 @@ private fun EditScreenContainer(
                             ) {
                                 Text(stringResource(id = R.string.edit_backup_sync_now))
                             }
+                            OutlinedButton(onClick = onClickSyncPreview, enabled = isBusy.not()) {
+                                Text(stringResource(id = R.string.edit_backup_preview))
+                            }
+                            OutlinedButton(onClick = onClickMirror, enabled = isBusy.not()) {
+                                Text(stringResource(id = R.string.edit_backup_mirror))
+                            }
                             OutlinedButton(onClick = onClickSelectBackupFolder) {
                                 Text(stringResource(id = R.string.edit_backup_change_folder))
                             }
@@ -1074,6 +1150,8 @@ private fun EditScreenPreview() {
             onClickSelectBackupFolder = {},
             onClickClearBackupFolder = {},
             onClickSyncNow = {},
+            onClickSyncPreview = {},
+            onClickMirror = {},
             onClickBack = {},
             onClickDelete = {},
             onClickSearchHost = {},

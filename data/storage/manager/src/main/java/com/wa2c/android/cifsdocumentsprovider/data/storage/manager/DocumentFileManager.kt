@@ -114,70 +114,95 @@ class DocumentFileManager @Inject constructor(
     }
 
     /**
-     * Walks [localFolderUri] and [remoteFolderUri] side by side for a two-way sync, creating on
-     * each side the subfolders only the other one has. Files present on one side only are sent to
-     * the other; files on both sides with a different size go from the newer side, or end up in
-     * [TreeDiff.conflicts] if neither is newer. Nothing is ever deleted.
-     * [onFolder] is called on entering each folder with its path relative to the roots.
+     * Walks [localFolderUri] and [remoteFolderUri] side by side and lists every path found on
+     * either side, without changing anything. Folders found on one side only are walked too.
+     * A folder that cannot be listed is reported in [TreeComparison.failedFolders] and skipped,
+     * since taking it as empty would make its contents look missing.
+     * [onFolder] is called on entering each folder with its path relative to the roots and the
+     * numbers of folders and paths seen so far.
      */
-    fun diffTreesRecursively(
+    fun compareTrees(
         localFolderUri: Uri,
         remoteFolderUri: Uri,
-        onFolder: (path: String, diff: TreeDiff) -> Unit = { _, _ -> },
-    ): TreeDiff {
-        if (!DocumentsContract.isTreeUri(localFolderUri) || !DocumentsContract.isTreeUri(remoteFolderUri)) return TreeDiff()
-        val localDocUri = DocumentsContract.buildDocumentUriUsingTree(localFolderUri, localFolderUri.documentIdInTree())
-        val remoteDocUri = DocumentsContract.buildDocumentUriUsingTree(remoteFolderUri, remoteFolderUri.documentIdInTree())
-        return TreeDiffBuilder().also { diffRecursive(localDocUri, remoteDocUri, "", it, onFolder) }.build()
-    }
-
-    private fun diffRecursive(
-        localDirUri: Uri,
-        remoteDirUri: Uri,
-        path: String,
-        result: TreeDiffBuilder,
-        onFolder: (path: String, diff: TreeDiff) -> Unit,
-    ) {
-        onFolder(path, result.build())
-        // One listing per directory and side. An unreadable side would look empty and have
-        // everything copied over again, so such a folder is skipped instead.
-        val local = queryChildrenOrNull(localDirUri)?.filterKeys { !it.isSyncTempName() }
-        val remote = queryChildrenOrNull(remoteDirUri)?.filterKeys { !it.isSyncTempName() }
-        if (local == null || remote == null) {
-            result.failedFolders += path
-            return
+        onFolder: (path: String, folders: Int, paths: Int) -> Unit = { _, _, _ -> },
+    ): TreeComparison {
+        if (!DocumentsContract.isTreeUri(localFolderUri) || !DocumentsContract.isTreeUri(remoteFolderUri)) {
+            return TreeComparison(failedFolders = listOf(""))
         }
-        for (name in local.keys + remote.keys) {
-            val l = local[name]
-            val r = remote[name]
-            val childPath = if (path.isEmpty()) name else "$path/$name"
-            when {
-                l != null && r != null && l.isDirectory != r.isDirectory -> result.conflicts += childPath
-                l?.isDirectory == true || r?.isDirectory == true -> {
-                    val localSub = l?.uri ?: createDirectory(localDirUri, name) ?: continue
-                    val remoteSub = r?.uri ?: createDirectory(remoteDirUri, name) ?: continue
-                    diffRecursive(localSub, remoteSub, childPath, result, onFolder)
-                }
-                l != null && r == null -> result.upload += l.toTransfer(name, remoteDirUri, targetExists = false)
-                r != null && l == null -> result.download += r.toTransfer(name, localDirUri, targetExists = false)
-                l != null && r != null -> when {
-                    l.size == r.size -> result.unchanged++
-                    l.lastModified > r.lastModified && r.lastModified > 0 -> result.upload += l.toTransfer(name, remoteDirUri, targetExists = true)
-                    r.lastModified > l.lastModified && l.lastModified > 0 -> result.download += r.toTransfer(name, localDirUri, targetExists = true)
-                    else -> result.conflicts += childPath
+        val entries = mutableListOf<TreeEntry>()
+        val failedFolders = mutableListOf<String>()
+        var folders = 0
+
+        fun walk(localDirUri: Uri?, remoteDirUri: Uri?, path: String) {
+            onFolder(path, ++folders, entries.size)
+            // One listing per directory and side
+            val local = localDirUri?.let { queryChildrenOrNull(it) ?: run { failedFolders += path; return } } ?: emptyMap()
+            val remote = remoteDirUri?.let { queryChildrenOrNull(it) ?: run { failedFolders += path; return } } ?: emptyMap()
+            for (name in local.keys + remote.keys) {
+                if (name.isSyncTempName()) continue
+                val l = local[name]
+                val r = remote[name]
+                val childPath = if (path.isEmpty()) name else "$path/$name"
+                entries += TreeEntry(childPath, l?.toNode(), r?.toNode())
+                if (l != null && r != null && l.isDirectory != r.isDirectory) continue
+                if (l?.isDirectory == true || r?.isDirectory == true) {
+                    walk(l?.uri, r?.uri, childPath)
                 }
             }
         }
+
+        walk(
+            DocumentsContract.buildDocumentUriUsingTree(localFolderUri, localFolderUri.documentIdInTree()),
+            DocumentsContract.buildDocumentUriUsingTree(remoteFolderUri, remoteFolderUri.documentIdInTree()),
+            "",
+        )
+        return TreeComparison(entries, failedFolders)
     }
 
-    private fun ChildDocument.toTransfer(name: String, targetDirUri: Uri, targetExists: Boolean) = SyncTransfer(
-        sourceUri = uri,
-        targetDirUri = targetDirUri,
-        name = name,
+    private fun ChildDocument.toNode() = TreeNode(
+        uri = uri,
+        isDirectory = isDirectory,
         size = size,
         mimeType = mimeType,
-        targetExists = targetExists,
+        lastModified = lastModified,
     )
+
+    /**
+     * Finds the folders below tree [rootTreeUri] by their paths relative to it, creating the
+     * missing ones if asked to, and remembers what it found.
+     */
+    inner class DirectoryResolver(rootTreeUri: Uri) {
+        private val folders = mutableMapOf(
+            "" to DocumentsContract.buildDocumentUriUsingTree(rootTreeUri, rootTreeUri.documentIdInTree())
+        )
+        private val listings = mutableMapOf<Uri, Map<String, ChildDocument>>()
+
+        fun resolve(path: String, create: Boolean = true): Uri? {
+            folders[path]?.let { return it }
+            val parent = resolve(path.substringBeforeLast('/', ""), create) ?: return null
+            val name = path.substringAfterLast('/')
+            val existing = listings.getOrPut(parent) { queryChildren(parent) }[name]?.takeIf { it.isDirectory }?.uri
+            return (existing ?: if (create) createDirectory(parent, name) else null)?.also { folders[path] = it }
+        }
+    }
+
+    /**
+     * Moves the file or folder [uri] at [path] (relative to the root of [folders]) into
+     * [TRASH_DIR]/[trashName]/ under the same root, keeping its relative path there.
+     * @return False if it could not be moved
+     */
+    fun moveToTrash(folders: DirectoryResolver, path: String, uri: Uri, trashName: String): Boolean {
+        return try {
+            val parentPath = path.substringBeforeLast('/', "")
+            val sourceParent = folders.resolve(parentPath, create = false) ?: return false
+            val trashParent = folders.resolve(listOf(TRASH_DIR, trashName, parentPath).filter { it.isNotEmpty() }.joinToString("/"))
+                ?: return false
+            DocumentsContract.moveDocument(context.contentResolver, uri, sourceParent, trashParent) != null
+        } catch (e: Exception) {
+            logE(e)
+            false
+        }
+    }
 
     /**
      * True if this app may create and overwrite files in tree [treeUri] - either granted
@@ -215,7 +240,7 @@ class DocumentFileManager @Inject constructor(
         return newUri
     }
 
-    private fun String.isSyncTempName() = endsWith(TEMP_SUFFIX) || endsWith(OLD_SUFFIX)
+    private fun String.isSyncTempName() = endsWith(TEMP_SUFFIX) || endsWith(OLD_SUFFIX) || this == TRASH_DIR
 
     private fun collectRecursive(
         sourceDir: DocumentFile,
@@ -231,7 +256,7 @@ class DocumentFileManager @Inject constructor(
             when {
                 child.isFile -> result.add(child.uri to targetDirUri)
                 child.isDirectory -> {
-                    val name = child.name ?: continue
+                    val name = child.name?.takeIf { it != TRASH_DIR } ?: continue
                     val children = targetChildren ?: queryChildren(targetDirUri).also { targetChildren = it }
                     val subTargetUri = children[name]?.takeIf { it.isDirectory }?.uri
                         ?: createDirectory(targetDirUri, name)
@@ -311,15 +336,6 @@ class DocumentFileManager @Inject constructor(
         val lastModified: Long,
     )
 
-    private class TreeDiffBuilder {
-        val upload = mutableListOf<SyncTransfer>()
-        val download = mutableListOf<SyncTransfer>()
-        val conflicts = mutableListOf<String>()
-        val failedFolders = mutableListOf<String>()
-        var unchanged = 0
-        fun build() = TreeDiff(upload.toList(), download.toList(), conflicts.toList(), failedFolders.toList(), unchanged)
-    }
-
     /**
      * Size of document [uri] as its provider reports it, null if unknown.
      */
@@ -386,6 +402,8 @@ class DocumentFileManager @Inject constructor(
         const val TEMP_SUFFIX = ".cdpsync-part"
         /** Suffix of a file being replaced by a finished download */
         const val OLD_SUFFIX = ".cdpsync-old"
+        /** Folder deleted files are moved into by a mirror sync, on the side they were deleted from */
+        const val TRASH_DIR = ".cdpsync-trash"
     }
 
 }

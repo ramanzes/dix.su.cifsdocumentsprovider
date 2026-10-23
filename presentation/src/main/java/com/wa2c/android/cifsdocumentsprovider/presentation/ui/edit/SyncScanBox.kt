@@ -54,19 +54,24 @@ fun SyncScanBox(progress: SyncScanProgress) {
             CircularProgressIndicator()
             val isCheck = progress.stage == SyncScanProgress.Stage.CHECK
             val isCompare = progress.stage == SyncScanProgress.Stage.COMPARE
+            val isTrash = progress.stage == SyncScanProgress.Stage.TRASH
             Text(
                 text = stringResource(
                     when (progress.stage) {
                         SyncScanProgress.Stage.COLLECT -> R.string.sync_scan_stage_collect
                         SyncScanProgress.Stage.CHECK -> R.string.sync_scan_stage_check
                         SyncScanProgress.Stage.COMPARE -> R.string.sync_scan_stage_compare
+                        SyncScanProgress.Stage.TRASH -> R.string.sync_scan_stage_trash
                     }
                 ),
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.padding(top = Theme.Sizes.M),
             )
-            if (isCheck) {
-                Text(stringResource(R.string.sync_scan_check_counts, progress.files, progress.total, progress.newFiles))
+            if (isCheck || isTrash) {
+                Text(
+                    if (isTrash) stringResource(R.string.sync_scan_trash_counts, progress.files, progress.total)
+                    else stringResource(R.string.sync_scan_check_counts, progress.files, progress.total, progress.newFiles)
+                )
                 LinearProgressIndicator(
                     progress = { if (progress.total > 0) progress.files.toFloat() / progress.total else 0f },
                     modifier = Modifier
@@ -74,7 +79,7 @@ fun SyncScanBox(progress: SyncScanProgress) {
                         .padding(vertical = Theme.Sizes.S),
                 )
             } else if (isCompare) {
-                Text(stringResource(R.string.sync_scan_compare_counts, progress.folders, progress.files, progress.newFiles, progress.downloadFiles))
+                Text(stringResource(R.string.sync_scan_compare_counts, progress.folders, progress.files))
             } else {
                 Text(stringResource(R.string.sync_scan_collect_counts, progress.folders, progress.files))
             }
@@ -103,7 +108,13 @@ fun SyncScanBox(progress: SyncScanProgress) {
                 )
             }
             Text(
-                text = stringResource(if (isCompare) R.string.sync_scan_transfer_next else R.string.sync_scan_upload_next),
+                text = stringResource(
+                    when {
+                        isCompare -> R.string.sync_scan_no_changes
+                        isTrash -> R.string.sync_scan_transfer_next
+                        else -> R.string.sync_scan_upload_next
+                    }
+                ),
                 style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier.padding(top = Theme.Sizes.S),
             )
