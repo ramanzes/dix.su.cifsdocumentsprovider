@@ -2,6 +2,12 @@
 
 Форк [wa2c/cifs-documents-provider](https://github.com/wa2c/cifs-documents-provider), базовая версия Ver.2.4.0(31).
 
+## [v2.4.0-dixsu.22] — 2026-10-23
+
+### Исправлено
+- **В приложении (экран «О приложении», системные настройки приложения) версия теперь показывается полностью — «2.4.0-dixsu.22»**, а не «2.4.0». Раньше номер dixsu был только в git-теге и в имени APK. Теперь он задан в `appVersionName` (`build.gradle.kts`), и Gradle сам называет APK `CIFSDocumentsProvider-2.4.0-dixsu.N-release.apk`.
+- versionCode 40.
+
 ## [v2.4.0-dixsu.21] — 2026-10-23
 
 ### Изменено

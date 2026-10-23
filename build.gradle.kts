@@ -11,8 +11,8 @@ val storeApplicationId by extra ("su.dix.cifsdocumentsprovider")
 val javaVersion by extra (JavaVersion.VERSION_21)
 val androidCompileSdk by extra (35)
 val androidMinSdk by extra (26)
-val appVersionName by extra ("2.4.0")
-val appVersionCode by extra (39)
+val appVersionName by extra ("2.4.0-dixsu.22")
+val appVersionCode by extra (40)
 
 plugins {
     alias(libs.plugins.kotlin.android) apply false
