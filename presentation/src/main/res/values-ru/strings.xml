@@ -83,14 +83,14 @@
     <string name="edit_option_thumbnail_disabled">Отключено</string>
 
     <string name="edit_backup_section_title">Бэкап</string>
-    <string name="edit_backup_hint">Загружает новые файлы (сверка по имени и размеру) из локальной папки в корень этого соединения. «Синхронизировать сейчас» — по нажатию; «Автобэкап» ниже — периодически в фоне.</string>
+    <string name="edit_backup_hint">Загружает новые файлы (сверка по имени и размеру) из локальной папки в корень этого соединения. «Бэкап» — по нажатию; «Автобэкап» ниже — периодически в фоне.</string>
     <string name="edit_backup_select_folder">Выбрать папку для бэкапа</string>
     <string name="edit_backup_change_folder">Сменить папку</string>
     <string name="edit_backup_remove_folder">Убрать</string>
     <string name="edit_backup_folder_selected">Бэкапится: %1$s</string>
     <string name="edit_backup_auto_label">Автобэкап (синхронизация в фоне)</string>
     <string name="edit_backup_auto_hint">Проверяет наличие новых файлов примерно раз в 15 минут, даже когда приложение закрыто. Android может задерживать это при ограничениях батареи — отключите оптимизацию батареи выше для надёжного расписания.</string>
-    <string name="edit_backup_sync_now">Синхронизировать сейчас</string>
+    <string name="edit_backup_sync_now">Бэкап</string>
     <string name="edit_backup_preview">Только посмотреть</string>
     <string name="edit_backup_mirror">Привести к состоянию…</string>
     <string name="edit_backup_two_way_label">Двусторонняя синхронизация</string>
@@ -138,6 +138,9 @@
     <string name="folder_new_button">Новая папка</string>
     <string name="folder_new_dialog_title">Новая папка</string>
     <string name="folder_new_dialog_hint">Имя папки</string>
+    <string name="folder_new_dialog_rule">1–%1$d латинских букв (A–Z, a–z) или цифр, без пробелов. Регистр важен: «Photos» и «photos» - разные папки.</string>
+    <string name="folder_new_dialog_too_long">Не больше %1$d символов (сейчас %2$d)</string>
+    <string name="folder_new_dialog_invalid_characters">Только латинские буквы A–Z, a–z и цифры 0–9 - без пробелов, знаков и других алфавитов</string>
     
     <!-- Settings Screen -->
     <string name="settings_title">Настройки</string>

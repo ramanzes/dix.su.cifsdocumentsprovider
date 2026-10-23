@@ -1,6 +1,7 @@
 package com.wa2c.android.cifsdocumentsprovider.presentation.ui.folder
 
 import androidx.lifecycle.ViewModel
+import com.wa2c.android.cifsdocumentsprovider.domain.model.FolderNameRule
 import com.wa2c.android.cifsdocumentsprovider.domain.model.RemoteConnection
 import com.wa2c.android.cifsdocumentsprovider.domain.model.RemoteFile
 import com.wa2c.android.cifsdocumentsprovider.domain.model.StorageUri
@@ -84,7 +85,7 @@ class FolderViewModel @Inject constructor(
      * Create a new directory inside the current folder and navigate into it.
      */
     fun onCreateFolder(name: String) {
-        if (isLoading.value || name.isBlank()) return
+        if (isLoading.value || !FolderNameRule.isValid(name)) return
         launch {
             _isLoading.emit(true)
             runCatching {

@@ -83,14 +83,14 @@
     <string name="edit_option_thumbnail_disabled">Disabled</string>
 
     <string name="edit_backup_section_title">Backup</string>
-    <string name="edit_backup_hint">Upload new files (compared by name and size) from a local folder into this connection\'s root. \"Sync now\" runs on demand while this screen is open; \"Auto backup\" below runs it periodically in the background.</string>
+    <string name="edit_backup_hint">Upload new files (compared by name and size) from a local folder into this connection\'s root. \"Backup\" runs on demand while this screen is open; \"Auto backup\" below runs it periodically in the background.</string>
     <string name="edit_backup_select_folder">Select folder to back up</string>
     <string name="edit_backup_change_folder">Change folder</string>
     <string name="edit_backup_remove_folder">Remove</string>
     <string name="edit_backup_folder_selected">Backing up: %1$s</string>
     <string name="edit_backup_auto_label">Auto backup (sync in background)</string>
     <string name="edit_backup_auto_hint">Checks for new files roughly every 15 minutes, even while the app is closed. Android may still delay this under battery restrictions - disable battery optimization above for reliable timing.</string>
-    <string name="edit_backup_sync_now">Sync now</string>
+    <string name="edit_backup_sync_now">Backup</string>
     <string name="edit_backup_preview">Preview</string>
     <string name="edit_backup_mirror">Make the same…</string>
     <string name="edit_backup_two_way_label">Two-way sync</string>
@@ -138,6 +138,9 @@
     <string name="folder_new_button">New folder</string>
     <string name="folder_new_dialog_title">New folder</string>
     <string name="folder_new_dialog_hint">Folder name</string>
+    <string name="folder_new_dialog_rule">1–%1$d Latin letters (A–Z, a–z) or digits, no spaces. Case matters: \"Photos\" and \"photos\" are different folders.</string>
+    <string name="folder_new_dialog_too_long">At most %1$d characters (now %2$d)</string>
+    <string name="folder_new_dialog_invalid_characters">Only Latin letters A–Z, a–z and digits 0–9 - no spaces, punctuation or other alphabets</string>
     
     <!-- Settings Screen -->
     <string name="settings_title">Settings</string>

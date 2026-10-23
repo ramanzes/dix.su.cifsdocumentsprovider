@@ -4,6 +4,7 @@ import android.content.res.Configuration
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -11,6 +12,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import com.wa2c.android.cifsdocumentsprovider.domain.model.FolderNameRule
 import com.wa2c.android.cifsdocumentsprovider.presentation.R
 import com.wa2c.android.cifsdocumentsprovider.presentation.ui.common.CommonDialog
 import com.wa2c.android.cifsdocumentsprovider.presentation.ui.common.DialogButton
@@ -25,11 +27,12 @@ fun NewFolderDialog(
     onDismiss: () -> Unit,
 ) {
     var name by remember { mutableStateOf("") }
+    val problem = FolderNameRule.check(name)
 
     CommonDialog(
         title = stringResource(id = R.string.folder_new_dialog_title),
         confirmButtons = listOf(
-            DialogButton(label = stringResource(id = R.string.general_accept), enabled = name.isNotBlank()) {
+            DialogButton(label = stringResource(id = R.string.general_accept), enabled = problem == null) {
                 onInput(name)
             }
         ),
@@ -42,8 +45,18 @@ fun NewFolderDialog(
             OutlinedTextField(
                 value = name,
                 onValueChange = { name = it },
-                placeholder = { androidx.compose.material3.Text(stringResource(id = R.string.folder_new_dialog_hint)) },
+                placeholder = { Text(stringResource(id = R.string.folder_new_dialog_hint)) },
                 singleLine = true,
+                isError = name.isNotEmpty() && problem != null,
+                supportingText = {
+                    Text(
+                        when (problem.takeIf { name.isNotEmpty() }) {
+                            FolderNameRule.Problem.TOO_LONG -> stringResource(R.string.folder_new_dialog_too_long, FolderNameRule.MAX_LENGTH, name.length)
+                            FolderNameRule.Problem.INVALID_CHARACTERS -> stringResource(R.string.folder_new_dialog_invalid_characters)
+                            else -> stringResource(R.string.folder_new_dialog_rule, FolderNameRule.MAX_LENGTH)
+                        }
+                    )
+                },
                 modifier = Modifier.fillMaxWidth()
             )
         }
