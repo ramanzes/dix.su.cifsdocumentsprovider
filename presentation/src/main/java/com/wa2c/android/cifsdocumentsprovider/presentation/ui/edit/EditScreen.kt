@@ -10,10 +10,12 @@ import android.content.Intent
 import android.content.res.Configuration
 import android.net.Uri
 import android.os.PowerManager
+import android.provider.DocumentsContract
 import android.provider.Settings
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -131,6 +133,7 @@ fun EditScreen(
     val clipboardManager = LocalClipboard.current
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showMirrorDialog by remember { mutableStateOf(false) }
+    var backupConfirm by remember { mutableStateOf<BackupAction?>(null) }
     var showBackConfirmationDialog by remember { mutableStateOf(false) }
     var showKeyInputDialog by remember { mutableStateOf(false) }
     var showKeyImportWarningDialog by remember { mutableStateOf(false) }
@@ -164,10 +167,17 @@ fun EditScreen(
         dixsuProxyPort = viewModel.dixsuProxyPort.collectAsStateWithLifecycle().value,
         onClickStartDixsuProxy = { viewModel.onClickStartDixsuProxy() },
         onClickStopDixsuProxy = { viewModel.onClickStopDixsuProxy() },
-        onClickSelectBackupFolder = { backupFolderOpenLauncher.launch(null) },
-        onClickClearBackupFolder = { viewModel.clearBackupFolder() },
-        onClickSyncNow = { viewModel.onClickSyncNow() },
-        onClickSyncPreview = { viewModel.onClickPreview() },
+        onClickSelectBackupFolder = {
+            // First pick: nothing to lose yet, go straight to the picker
+            if (viewModel.remoteConnection.value.backupLocalFolderUri == null) {
+                backupFolderOpenLauncher.launch(null)
+            } else {
+                backupConfirm = BackupAction.CHANGE_FOLDER
+            }
+        },
+        onClickClearBackupFolder = { backupConfirm = BackupAction.REMOVE_FOLDER },
+        onClickSyncNow = { backupConfirm = BackupAction.BACKUP },
+        onClickSyncPreview = { backupConfirm = BackupAction.PREVIEW },
         onClickMirror = { showMirrorDialog = true },
         onClickBack = {
             if (viewModel.isChanged) {
@@ -214,7 +224,7 @@ fun EditScreen(
         CommonDialog(
             title = stringResource(id = R.string.sync_mirror_dialog_title),
             confirmButtons = null,
-            dismissButton = DialogButton(label = stringResource(id = R.string.general_close)) {
+            dismissButton = DialogButton(label = stringResource(id = R.string.general_cancel)) {
                 showMirrorDialog = false
             },
             onDismiss = {
@@ -237,6 +247,46 @@ fun EditScreen(
                     showMirrorDialog = false
                     viewModel.onClickMirror(SyncMode.MIRROR_TO_PHONE)
                 }
+            }
+        }
+    }
+
+    // What a backup button is about to do, before it does it
+    backupConfirm?.let { action ->
+        val connection = viewModel.remoteConnection.value
+        val folderPath = remember(connection.backupLocalFolderUri) {
+            connection.backupLocalFolderUri?.let { backupFolderPath(context, it) }.orEmpty()
+        }
+        val serverPath = connection.uri.text
+        CommonDialog(
+            title = stringResource(id = action.titleRes),
+            confirmButtons = listOf(
+                DialogButton(label = stringResource(id = R.string.general_accept)) {
+                    backupConfirm = null
+                    when (action) {
+                        BackupAction.BACKUP -> viewModel.onClickSyncNow()
+                        BackupAction.PREVIEW -> viewModel.onClickPreview()
+                        BackupAction.CHANGE_FOLDER -> backupFolderOpenLauncher.launch(null)
+                        BackupAction.REMOVE_FOLDER -> viewModel.clearBackupFolder()
+                    }
+                },
+            ),
+            dismissButton = DialogButton(label = stringResource(id = R.string.general_cancel)) {
+                backupConfirm = null
+            },
+            onDismiss = {
+                backupConfirm = null
+            }
+        ) {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(Theme.Sizes.S),
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+            ) {
+                Text(stringResource(id = R.string.edit_backup_confirm_phone, folderPath))
+                if (action == BackupAction.BACKUP || action == BackupAction.PREVIEW) {
+                    Text(stringResource(id = R.string.edit_backup_confirm_server, serverPath))
+                }
+                Text(stringResource(id = action.messageRes(connection.twoWaySyncEnabled)))
             }
         }
     }
@@ -1031,14 +1081,20 @@ private fun EditScreenContainer(
                     )
                     connectionState.value.backupLocalFolderUri.let { backupFolderUri ->
                         if (backupFolderUri != null) {
-                            val backupFolderName = remember(backupFolderUri) {
-                                runCatching { DocumentFile.fromTreeUri(batteryContext, Uri.parse(backupFolderUri))?.name }
-                                    .getOrNull() ?: backupFolderUri
+                            val backupFolderPath = remember(backupFolderUri) {
+                                backupFolderPath(batteryContext, backupFolderUri)
                             }
                             Text(
-                                text = stringResource(id = R.string.edit_backup_folder_selected, backupFolderName ?: ""),
+                                text = stringResource(id = R.string.edit_backup_folder_selected, backupFolderPath),
                                 modifier = Modifier.padding(bottom = Theme.Sizes.S),
                             )
+                            OutlinedButton(
+                                onClick = onClickSelectBackupFolder,
+                                enabled = isBusy.not(),
+                                modifier = Modifier.padding(bottom = Theme.Sizes.L),
+                            ) {
+                                Text(stringResource(id = R.string.edit_backup_change_folder))
+                            }
                             Button(
                                 onClick = onClickSyncNow,
                                 enabled = isBusy.not(),
@@ -1052,10 +1108,7 @@ private fun EditScreenContainer(
                             OutlinedButton(onClick = onClickMirror, enabled = isBusy.not()) {
                                 Text(stringResource(id = R.string.edit_backup_mirror))
                             }
-                            OutlinedButton(onClick = onClickSelectBackupFolder) {
-                                Text(stringResource(id = R.string.edit_backup_change_folder))
-                            }
-                            OutlinedButton(onClick = onClickClearBackupFolder) {
+                            OutlinedButton(onClick = onClickClearBackupFolder, enabled = isBusy.not()) {
                                 Text(stringResource(id = R.string.edit_backup_remove_folder))
                             }
                             InputCheck(
@@ -1176,3 +1229,39 @@ private fun EditScreenPreview() {
         )
     }
 }
+
+/** Backup section actions that ask first */
+private enum class BackupAction(@StringRes val titleRes: Int) {
+    BACKUP(R.string.edit_backup_confirm_backup_title),
+    PREVIEW(R.string.edit_backup_confirm_preview_title),
+    CHANGE_FOLDER(R.string.edit_backup_confirm_change_title),
+    REMOVE_FOLDER(R.string.edit_backup_confirm_remove_title);
+
+    @StringRes
+    fun messageRes(twoWay: Boolean): Int = when (this) {
+        BACKUP -> if (twoWay) R.string.edit_backup_confirm_backup_two_way else R.string.edit_backup_confirm_backup_upload
+        PREVIEW -> R.string.edit_backup_confirm_preview_message
+        CHANGE_FOLDER -> if (twoWay) R.string.edit_backup_confirm_change_two_way else R.string.edit_backup_confirm_change_message
+        REMOVE_FOLDER -> R.string.edit_backup_confirm_remove_message
+    }
+}
+
+/**
+ * Full path of a picked folder on the device, e.g. /storage/emulated/0/DCIM. Folders from other
+ * providers have no path: their name is shown instead.
+ */
+private fun backupFolderPath(context: Context, treeUri: String): String {
+    val uri = Uri.parse(treeUri)
+    val documentId = runCatching { DocumentsContract.getTreeDocumentId(uri) }.getOrNull()
+    if (uri.authority == EXTERNAL_STORAGE_AUTHORITY && documentId != null) {
+        val volume = documentId.substringBefore(':')
+        val path = documentId.substringAfter(':', "")
+        val root = if (volume == PRIMARY_VOLUME) PRIMARY_STORAGE_PATH else "/storage/$volume"
+        return if (path.isEmpty()) root else "$root/$path"
+    }
+    return runCatching { DocumentFile.fromTreeUri(context, uri)?.name }.getOrNull() ?: treeUri
+}
+
+private const val EXTERNAL_STORAGE_AUTHORITY = "com.android.externalstorage.documents"
+private const val PRIMARY_VOLUME = "primary"
+private const val PRIMARY_STORAGE_PATH = "/storage/emulated/0"
