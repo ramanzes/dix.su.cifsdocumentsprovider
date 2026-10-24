@@ -118,5 +118,6 @@ sealed class StorageConnection {
         val backupLocalFolderUri: String? = null,
         val autoBackupEnabled: Boolean = false,
         val twoWaySyncEnabled: Boolean = false,
+        val compressionEnabled: Boolean = false,
     ) : StorageConnection()
 }

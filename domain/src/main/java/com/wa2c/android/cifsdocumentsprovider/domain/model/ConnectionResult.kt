@@ -8,7 +8,10 @@ sealed class ConnectionResult {
     abstract val cause: Throwable?
 
     /** Success */
-    data object Success: ConnectionResult() {
+    data class Success(
+        /** The server agreed to compress the traffic */
+        val compressed: Boolean = false,
+    ): ConnectionResult() {
         override val cause: Throwable? = null
     }
     /** Warning */

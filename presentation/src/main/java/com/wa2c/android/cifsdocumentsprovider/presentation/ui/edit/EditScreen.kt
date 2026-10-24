@@ -909,6 +909,19 @@ private fun EditScreenContainer(
                         ) {
                             connectionState.value = connectionState.value.copy(ignoreKnownHosts = it)
                         }
+
+                        InputCheck(
+                            title = stringResource(id = R.string.edit_compression_label),
+                            value = connectionState.value.compressionEnabled,
+                            focusManager = focusManager
+                        ) {
+                            connectionState.value = connectionState.value.copy(compressionEnabled = it)
+                        }
+                        Text(
+                            text = stringResource(id = R.string.edit_compression_hint),
+                            fontSize = 12.sp,
+                            modifier = Modifier.padding(bottom = Theme.Sizes.S),
+                        )
                     }
 
 

@@ -136,10 +136,10 @@ class EditRepository @Inject internal constructor(
                     // check key
                     connection.keyFileUri?.let { loadKeyFile(it) }
                     connection.keyData?.let { checkKey(it) }
-                    ConnectionResult.Success
                 } catch (e: Exception) {
-                    ConnectionResult.Warning(e)
+                    return@withContext ConnectionResult.Warning(e)
                 }
+                checkCompression(request.connection)
             } catch (e: Exception) {
                 if (e is StorageException.File) {
                     ConnectionResult.Warning(e)
@@ -149,6 +149,19 @@ class EditRepository @Inject internal constructor(
             } finally {
                 storageClientManager.removeCache(request)
             }
+        }
+    }
+
+    /**
+     * Success, or a warning if compression is on but the server does not offer it.
+     * A server that could not be asked is not reported: the connection itself worked.
+     */
+    private suspend fun checkCompression(connection: StorageConnection): ConnectionResult {
+        if (connection !is StorageConnection.Sftp || !connection.compressionEnabled) return ConnectionResult.Success()
+        return when (storageClientManager.checkSftpCompression(connection)) {
+            true -> ConnectionResult.Success(compressed = true)
+            false -> ConnectionResult.Warning(EditException.CompressionUnsupportedException())
+            null -> ConnectionResult.Success()
         }
     }
 

@@ -57,6 +57,8 @@
     <string name="edit_passphrase_title">Пароль от приватного ключа</string>
     <string name="edit_passphrase_hint">Не вводите если не нужно</string>
     <string name="edit_ignore_known_hosts_label">Не проверять знакомые и доверенные SSH хосты</string>
+    <string name="edit_compression_label">Сжимать трафик (SSH)</string>
+    <string name="edit_compression_hint">Меньше трафика для документов и текстов. Фото и видео уже сжаты — для них почти без выигрыша. Если сервер не поддерживает сжатие, файлы передаются без него. Результат покажет «Тест соединения».</string>
     <string name="edit_dixsu_tunnel_label">dixsu-туннель</string>
     <string name="edit_dixsu_slug_title">Слаг</string>
     <string name="edit_dixsu_slug_hint">Слаг устройства на dix.su</string>
@@ -102,6 +104,8 @@
     <string name="edit_check_connection_button">Проверить соединение</string>
     <string name="edit_check_connection_ok_message">Соединение успешно.</string>
     <string name="edit_check_connection_wn_message">Ошибка в настройках.</string>
+    <string name="edit_check_connection_compressed_message">Соединение успешно. Трафик сжимается.</string>
+    <string name="edit_check_connection_no_compression_message">Соединение успешно, но сервер не поддерживает сжатие: файлы будут передаваться без него.</string>
     <string name="edit_check_connection_ng_message">Соединение оборвано.</string>
     <string name="edit_check_save_ng_input_message">Имя и хост обязательны.</string>
     <string name="edit_check_save_ng_invalid_id_message">Неверный ID.</string>

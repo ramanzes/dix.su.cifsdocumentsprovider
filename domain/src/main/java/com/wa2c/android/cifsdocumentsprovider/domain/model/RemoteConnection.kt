@@ -44,6 +44,8 @@ data class RemoteConnection(
     val autoBackupEnabled: Boolean = false,
     /** Also download files that are only on the server, newer side wins on a size mismatch */
     val twoWaySyncEnabled: Boolean = false,
+    /** Ask the SSH server for zlib compression of the traffic */
+    val compressionEnabled: Boolean = false,
     // Options
     val optionSafeTransfer: Boolean = false,
     val optionReadOnly: Boolean = false,
@@ -89,6 +91,7 @@ data class RemoteConnection(
                 || this.keyData != other.keyData
                 || this.keyPassphrase != other.keyPassphrase
                 || this.ignoreKnownHosts != other.ignoreKnownHosts
+                || this.compressionEnabled != other.compressionEnabled
                 || this.encoding != other.encoding
                 || this.isFtpActiveMode != other.isFtpActiveMode
                 || this.isFtpsImplicit != other.isFtpsImplicit

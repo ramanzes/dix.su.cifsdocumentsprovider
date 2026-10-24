@@ -11,4 +11,7 @@ sealed class EditException(e: Exception?): RuntimeException(e) {
         class AccessFailedException(e: Exception? = null) : KeyCheck(e)
         class InvalidException(e: Exception? = null) : KeyCheck(e)
     }
+
+    /** Compression is on, but the server does not offer it */
+    class CompressionUnsupportedException : EditException(null)
 }

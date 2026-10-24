@@ -40,8 +40,13 @@ val ConnectionResult.messageType: PopupMessageType
 val ConnectionResult.messageRes
     @StringRes
     get() = when (this) {
-        is ConnectionResult.Success -> { R.string.edit_check_connection_ok_message }
-        is ConnectionResult.Warning -> { R.string.edit_check_connection_wn_message }
+        is ConnectionResult.Success -> {
+            if (compressed) R.string.edit_check_connection_compressed_message else R.string.edit_check_connection_ok_message
+        }
+        is ConnectionResult.Warning -> {
+            if (cause is EditException.CompressionUnsupportedException) R.string.edit_check_connection_no_compression_message
+            else R.string.edit_check_connection_wn_message
+        }
         is ConnectionResult.Failure -> { R.string.edit_check_connection_ng_message }
     }
 

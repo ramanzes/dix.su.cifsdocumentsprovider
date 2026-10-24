@@ -179,6 +179,7 @@ internal object DomainMapper {
                     backupLocalFolderUri = backupLocalFolderUri,
                     autoBackupEnabled = autoBackupEnabled,
                     twoWaySyncEnabled = twoWaySyncEnabled,
+                    compressionEnabled = compressionEnabled,
                     optionSafeTransfer = safeTransfer,
                     optionReadOnly = readOnly,
                     optionThumbnailTypes = thumbnailTypes.mapNotNull { ThumbnailType.findByType(it) },
@@ -293,6 +294,7 @@ internal object DomainMapper {
                     backupLocalFolderUri = backupLocalFolderUri,
                     autoBackupEnabled = autoBackupEnabled,
                     twoWaySyncEnabled = twoWaySyncEnabled,
+                    compressionEnabled = compressionEnabled,
                 )
             }
         }

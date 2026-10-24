@@ -94,6 +94,13 @@ class StorageClientManager @Inject constructor(
         return getClient(request.connection.storage).getChildren(request, ignoreCache)
     }
 
+    /**
+     * True if the SFTP server agrees to compress the traffic, null if it could not be checked
+     */
+    suspend fun checkSftpCompression(connection: StorageConnection.Sftp): Boolean? {
+        return apacheSftpClient.value.checkCompression(connection)
+    }
+
     suspend fun createDirectory(request: StorageRequest): StorageFile {
         return getClient(request.connection.storage).createDirectory(request)
     }
